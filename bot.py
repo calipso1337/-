@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Публикует следующий пост из queue.json в Telegram-канал. Без внешних зависимостей.
 
-python3 bot.py          опубликовать следующий пост
+python3 bot.py          опубликовать следующий пост, если подошло его время
+python3 bot.py --now    опубликовать следующий пост сразу
 python3 bot.py --check  проверить неопубликованные посты, ничего не отправляя
 """
 import html
 import json
 import mimetypes
 import os
+import random
 import re
 import secrets
 import sys
@@ -26,6 +28,7 @@ LIMITS = {"text": 4096, "photo": 1024, "video": 1024}
 VIDEO_SIZE = {"width": 1280, "height": 720, "duration": 6}
 SHARE_URL = "https://t.me/share/url?url=https://t.me/All_About_Brawl"
 SHARE_BUTTON = {"inline_keyboard": [[{"text": "📤 Поделиться каналом", "url": SHARE_URL}]]}
+EARLY_START = 600  # GitHub запускает расписание неточно, поэтому допускаем 10 минут.
 ALLOWED_TAGS = {"b", "i", "u", "s", "a", "code", "blockquote", "tg-spoiler"}
 
 
@@ -144,6 +147,17 @@ def send_photo(token, channel, image, caption, keyboard=None):
     return send_file(token, "sendPhoto", fields, "photo", ROOT / image)
 
 
+def send_post_photo(token, channel, post, keyboard=None):
+    try:
+        return send_photo(token, channel, post["image"], full_text(post), keyboard)
+    except RuntimeError as error:
+        # Чужая ссылка может перестать работать, поэтому есть запасная обложка.
+        if not post.get("fallback_image"):
+            raise
+        print(f"Картинка не загрузилась, беру запасную: {error}")
+        return send_photo(token, channel, post["fallback_image"], full_text(post), keyboard)
+
+
 def publish(token, channel, post):
     kind = post.get("type", "text")
     if kind == "text":
@@ -159,7 +173,7 @@ def publish(token, channel, post):
             },
         )
     elif kind == "photo":
-        send_photo(token, channel, post["image"], full_text(post), SHARE_BUTTON)
+        send_post_photo(token, channel, post, SHARE_BUTTON)
     elif kind == "video":
         fields = {
             "chat_id": channel,
@@ -173,7 +187,7 @@ def publish(token, channel, post):
     elif kind == "poll":
         # В опрос нельзя вложить картинку, поэтому она выходит сообщением перед ним.
         if post.get("image"):
-            send_photo(token, channel, post["image"], full_text(post))
+            send_post_photo(token, channel, post)
         call(
             token,
             "sendPoll",
@@ -205,13 +219,13 @@ def validate_post(post):
         errors.append("пустой текст")
     if kind == "photo" and not post.get("image"):
         errors.append("нет картинки")
-    image = post.get("image")
-    if image and not is_url(image):
-        path = (ROOT / image).resolve()
-        if ROOT not in path.parents or not path.is_file():
-            errors.append(f"файл {image} не найден")
-        elif path.stat().st_size > 10_000_000:
-            errors.append(f"файл {image} больше 10 МБ")
+    for image in (post.get("image"), post.get("fallback_image")):
+        if image and not is_url(image):
+            path = (ROOT / image).resolve()
+            if ROOT not in path.parents or not path.is_file():
+                errors.append(f"файл {image} не найден")
+            elif path.stat().st_size > 10_000_000:
+                errors.append(f"файл {image} больше 10 МБ")
     if kind == "video":
         video = (ROOT / post.get("video", "")).resolve()
         if ROOT not in video.parents or video.suffix != ".mp4" or not video.is_file():
@@ -240,7 +254,8 @@ def load_state():
 
 def main():
     posts = json.loads(QUEUE.read_text(encoding="utf-8"))
-    index = load_state()["next"]
+    state = load_state()
+    index = state["next"]
     validate(posts, index)
     if "--check" in sys.argv:
         print(f"Проверено постов: {max(len(posts) - index, 0)}. Ошибок нет.")
@@ -254,8 +269,15 @@ def main():
         print("Очередь закончилась, добавь новые посты в queue.json")
         return
 
+    now = time.time()
+    manual = "--now" in sys.argv or os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
+    if not manual and now < state.get("next_at", 0) - EARLY_START:
+        print("Время следующего поста ещё не подошло")
+        return
+
     publish(token, channel, posts[index])
-    STATE.write_text(json.dumps({"next": index + 1}) + "\n")
+    next_at = int(now + random.randint(1, 3) * 3600)
+    STATE.write_text(json.dumps({"next": index + 1, "next_at": next_at}) + "\n")
     print(f"Опубликован пост {index + 1} из {len(posts)}")
 
 

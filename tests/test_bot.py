@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -50,16 +51,19 @@ def run(tmp_path):
     (tmp_path / "videos" / "a.mp4").write_bytes(b"MP4-test")
     (tmp_path / "bot.py").write_text((ROOT / "bot.py").read_text(encoding="utf-8"), encoding="utf-8")
 
-    def go(posts, state=0):
+    def go(posts, state=0, next_at=0, arguments=()):
         (tmp_path / "queue.json").write_text(json.dumps(posts), encoding="utf-8")
-        (tmp_path / "state.json").write_text(json.dumps({"next": state}))
+        (tmp_path / "state.json").write_text(json.dumps({"next": state, "next_at": next_at}))
         env = {
             **os.environ,
             "TELEGRAM_BOT_TOKEN": "secret-token",
             "TELEGRAM_CHANNEL": "@channel",
             "TELEGRAM_API_BASE": f"http://127.0.0.1:{server.server_port}",
         }
-        done = subprocess.run([sys.executable, "bot.py"], cwd=tmp_path, env=env, capture_output=True, text=True)
+        env.pop("GITHUB_EVENT_NAME", None)
+        done = subprocess.run(
+            [sys.executable, "bot.py", *arguments], cwd=tmp_path, env=env, capture_output=True, text=True
+        )
         return done, json.loads((tmp_path / "state.json").read_text())["next"]
 
     yield go, server
@@ -123,6 +127,37 @@ def test_post_without_source_has_no_footer(run):
     go, server = run
     go([{"type": "text", "text": "Привет"}])
     assert json.loads(server.calls[0][2])["text"] == "Привет"
+
+
+def test_waits_until_next_time(run):
+    go, server = run
+    done, state = go([{"type": "text", "text": "Привет"}], next_at=int(time.time()) + 3600)
+    assert done.returncode == 0 and state == 0 and server.calls == []
+    assert "не подошло" in done.stdout
+
+
+def test_ten_minutes_early_is_allowed(run):
+    go, server = run
+    _, state = go([{"type": "text", "text": "Привет"}], next_at=int(time.time()) + 300)
+    assert state == 1
+
+
+def test_now_flag_ignores_wait_and_sets_interval(run, tmp_path):
+    go, server = run
+    before = time.time()
+    _, state = go([{"type": "text", "text": "Привет"}], next_at=int(before) + 9000, arguments=["--now"])
+    assert state == 1
+    wait = json.loads((tmp_path / "state.json").read_text())["next_at"] - before
+    assert 3590 <= wait <= 10810
+
+
+def test_fallback_image_after_url_failure(run):
+    go, server = run
+    server.fail = 1
+    post = {"type": "photo", "image": "https://e.com/x.jpg", "fallback_image": "images/a.png", "text": "x"}
+    done, state = go([post])
+    assert done.returncode == 0 and state == 1
+    assert server.calls[0][1].startswith("multipart/form-data")
 
 
 def test_failed_send_keeps_position_and_hides_token(run):

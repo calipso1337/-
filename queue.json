@@ -46,6 +46,21 @@
     "text": "<b>🛠 ИГРА СТАЛА УДОБНЕЕ</b>\n\n<i>Четыре мелочи, которые заметишь уже в первом бою.</i>\n\n<blockquote><b>📌 Значки</b>\nНаборы и автоматическая отправка: на старте, при победе и за серию из 3 устранений\n\n<b>💬 Чат</b>\nРеакции на сообщения, история теперь сохраняется\n\n<b>📊 Статистика</b>\nУрон, лечение и устранения после матча и в журнале боёв\n\n<b>🎯 Цифры урона</b>\nВидно направление, сумму и попадания за краем экрана</blockquote>\n\n💬 <i>Вердикт: новые цифры урона понравятся всем, кто любит считать вклад в победу.</i>\n\nЧто пригодится тебе больше всего? 👇\n\n#BrawlStars #обновление"
   },
   {
+    "type": "photo",
+    "image": "images/2026-11-balance-table.png",
+    "text": "<b>📊 БАЛАНС НОЯБРЯ: ТАБЛИЦА</b>\n\n<i>Все главные цифры на одной картинке.</i>\n\n<blockquote><b>📈 Сильнее всех вырос</b>\nДрако: супер 1120 → 1620\n\n<b>📉 Сильнее всех просел</b>\nГас: максимум духов 10 → 3</blockquote>\n\n💬 <i>Вердикт: Шейду и Гасу теперь придётся играть иначе.</i>\n\nКто из них победитель этого патча? 👇\n\n#BrawlStars #баланс",
+    "source": "https://supercell.com/en/games/brawlstars/blog/game-updates/release-notes-november-2026/",
+    "source_name": "Supercell"
+  },
+  {
+    "type": "photo",
+    "image": "https://i0.wp.com/gamingonphone.com/wp-content/uploads/2026/11/brawl-stars-rey-and-ruby.jpg",
+    "text": "<b>👑 РЕЙ И РУБИ: БОЕВАЯ ПАРА</b>\n\n<i>Шахматы и карты в одной команде.</i>\n\n<blockquote><b>♟ Рей, мифический стрелок</b>\nСупер даёт до 3 секунд на прицеливание и щит на 30%\n\n<b>🃏 Руби, мифический боец-дамагер</b>\nСупер создаёт зону, которая не даёт врагам взлетать и прыгать\n\n<b>💞 Вместе</b>\nАтаки лечат напарника, а к нему персонаж бежит на 10% быстрее</blockquote>\n\n💬 <i>Вердикт: они раскрываются только рядом друг с другом.</i>\n\nКого возьмёшь первым? 👇\n\n#BrawlStars #новыйбоец",
+    "source": "https://supercell.com/en/games/brawlstars/blog/game-updates/release-notes-november-2026/",
+    "source_name": "Supercell",
+    "fallback_image": "images/2026-11-rey-ruby.png"
+  },
+  {
     "type": "poll",
     "question": "Как тебе новые правила рейтинга?",
     "options": [
@@ -59,24 +74,11 @@
   },
   {
     "type": "photo",
-    "text": "<b>📈 Кого усилили в ноябрьском обновлении</b>\n\n<i>Шелли снова в деле, а Драко бьёт супером заметно больнее.</i>\n\n• Хэнк: здоровье 5500 → 6000\n• Шелли: атака 300 → 340, супер 320 → 360\n• Драко: урон супера 1120 → 1620\n• Мелоди: атака 460 → 500\n• Чак: перезарядка атаки 2 с → 1,8 с\n• Дэррил: урон супера 660 → 720\n\n💬 <i>Вердикт: первым стоит попробовать Драко, у него самая заметная прибавка.</i>\n\nКого возьмёшь в бой первым? 👇\n\n#BrawlStars #баланс",
-    "image": "images/2026-11-post-06.png",
-    "source": "https://supercell.com/en/games/brawlstars/blog/game-updates/release-notes-november-2026/",
-    "source_name": "Supercell"
-  },
-  {
-    "type": "photo",
-    "text": "<b>📉 Кого ослабили в ноябрьском обновлении</b>\n\n<i>Шейду и Гасу досталось сильнее всех.</i>\n\n• Шейд: здоровье 3700 → 3400, супер длится 4 с вместо 6\n• Гас: на карте теперь максимум 3 духа вместо 10\n• Эмбер: урон супера от огня 480 → 400\n• Мэйзи: атака 1500 → 1360\n• Макс: заряд черты от движения −23%\n\n💬 <i>Вердикт: привычные сборки на Шейда и Гаса стоит пересмотреть.</i>\n\nЗаслуженно или перебор? 👇\n\n#BrawlStars #баланс",
-    "image": "images/2026-11-post-07.png",
-    "source": "https://supercell.com/en/games/brawlstars/blog/game-updates/release-notes-november-2026/",
-    "source_name": "Supercell"
-  },
-  {
-    "type": "photo",
-    "text": "<b>👑 Рей и Руби: новая боевая пара</b>\n\n<i>Шахматы и карты в одной команде.</i>\n\nРей — мифический стрелок, Руби — мифический боец-дамагер. В одной команде атаки лечат напарника, а к нему персонаж бежит на 10% быстрее.\n\n♟ Рей: супер даёт до 3 секунд на прицеливание и щит на 30%\n🃏 Руби: супер создаёт зону, которая не даёт врагам взлетать и прыгать\n\n💬 <i>Вердикт: играть ими лучше вдвоём и держаться рядом.</i>\n\nКого выберешь первым? 👇\n\n#BrawlStars #новыйбоец",
-    "image": "images/2026-11-post-08.png",
-    "source": "https://supercell.com/en/games/brawlstars/blog/game-updates/release-notes-november-2026/",
-    "source_name": "Supercell"
+    "image": "https://i0.wp.com/gamingonphone.com/wp-content/uploads/2026/11/brawl-stars-thunder-frogs.jpg",
+    "text": "<b>🐸 ГРОМОЖАБЫ: ЧТО ЕЩЁ УМЕЮТ</b>\n\n<i>Первый легендарный боец-артиллерия.</i>\n\n<blockquote><b>🔧 Гаджеты</b>\n«Парный кульбит» запускает двух жаб, «Электротерапия» лечит союзников внутри треугольника\n\n<b>⭐ Звёздные силы</b>\n«Лечебные прыжки» лечат от урона супера, «Трясина» замедляет на краю треугольника\n\n<b>⚡ Гиперзаряд</b>\n«Тройной трюк» соединяет места приземления разрядом</blockquote>\n\n💬 <i>Вердикт: держать врагов внутри треугольника будет главной задачей.</i>\n\nБудешь его качать? 👇\n\n#BrawlStars #Громожабы",
+    "source": "https://supercell.media/bs/novosti/thunderfrogs-brawl-vice-bs26/",
+    "source_name": "Мир Supercell",
+    "fallback_image": "images/2026-11-frogs.png"
   },
   {
     "type": "photo",
@@ -87,10 +89,27 @@
   },
   {
     "type": "photo",
-    "text": "<b>🎮 Новые режимы ноябрьского обновления</b>\n\n<i>И ещё 18 новых карт в придачу.</i>\n\n• Мега-Столкновение: 20 игроков, большая карта и боссы\n• Counterlight: команды ставят метки на стороне соперника и захватывают точки\n• Super Hockey: хоккей с вратарями и заряженными бросками\n• Loaded Showdown: обновлённые усиления\n• Jingle Brawls: новогодний режим\n\n💬 <i>Вердикт: Super Hockey выглядит самым необычным.</i>\n\nКакой режим ждёшь сильнее всего? 👇\n\n#BrawlStars #режимы",
-    "image": "images/2026-11-post-10.png",
+    "image": "https://i0.wp.com/gamingonphone.com/wp-content/uploads/2026/11/Brawl-Stars-October-2026-Brawl-Talk-cover.jpg",
+    "text": "<b>🎮 BRAWL TALK: НОВЫЕ РЕЖИМЫ</b>\n\n<i>И ещё 18 новых карт в придачу.</i>\n\n<blockquote><b>👑 Мега-Столкновение</b>\n20 игроков, большая карта и мини-карта\n\n<b>💡 Counterlight</b>\n2 раунда: команды зажигают синие огни на стороне соперника, побеждает быстрейшая\n\n<b>🏒 Super Hockey</b>\nЗаряженные броски и вратари в воротах\n\n<b>🎄 Jingle Brawls</b>\nРождественская башня: каждый боец только один раз</blockquote>\n\n💬 <i>Вердикт: Super Hockey выглядит самым необычным.</i>\n\nВо что пойдёшь первым делом? 👇\n\n#BrawlStars #режимы",
     "source": "https://supercell.com/en/games/brawlstars/blog/game-updates/release-notes-november-2026/",
-    "source_name": "Supercell"
+    "source_name": "Supercell",
+    "fallback_image": "images/2026-11-modes.png"
+  },
+  {
+    "type": "photo",
+    "image": "https://i0.wp.com/gamingonphone.com/wp-content/uploads/2026/11/brawl-stars-new-buffies-1.jpg",
+    "text": "<b>✨ НОВЫЕ БАФФИ: ЛУ И МЭНДИ</b>\n\n<i>Шесть бойцов получили обновки, вот две самые заметные.</i>\n\n<blockquote><b>❄️ Лу</b>\nГаджет Ice Block создаёт скользкую зону на 2 секунды и наносит 600 урона в секунду\n\n<b>🍬 Мэнди</b>\nГаджеты теперь можно прицеливать, а во время гиперзаряда она всё время в фокусе</blockquote>\n\nТакже обновки получили Мистер П, Гейл, Честер и Берри. Баффи теперь можно получить, даже если у тебя нет самого бойца.\n\n💬 <i>Вердикт: сборки Лу и Мэнди стоит собрать заново.</i>\n\nЧей баффи ждёшь больше всего? 👇\n\n#BrawlStars #баффи",
+    "source": "https://supercell.com/en/games/brawlstars/blog/game-updates/release-notes-november-2026/",
+    "source_name": "Supercell",
+    "fallback_image": "images/2026-11-buffies.png"
+  },
+  {
+    "type": "photo",
+    "image": "https://i0.wp.com/gamingonphone.com/wp-content/uploads/2026/11/brawl-stars-brawl-vice.jpg",
+    "text": "<b>🌴 СЕЗОН BRAWL VICE: СКИНЫ</b>\n\n<i>Неон, погони и работа под прикрытием.</i>\n\n<blockquote><b>🎟 Brawl Pass</b>\nБулл и Поко\n\n<b>💜 Мифические</b>\nБазз, Барли и Эмз\n\n<b>🌟 Легендарный</b>\nПирс</blockquote>\n\nЗаодно в сезоне появился новый титул Undercover.\n\n💬 <i>Вердикт: самый яркий образ сезона, похоже, у Пирса.</i>\n\nКакой скин тебе нравится больше всех? 👇\n\n#BrawlStars #скины",
+    "source": "https://supercell.com/en/games/brawlstars/blog/game-updates/release-notes-november-2026/",
+    "source_name": "Supercell",
+    "fallback_image": "images/2026-11-vice.png"
   },
   {
     "type": "photo",
@@ -99,10 +118,35 @@
   },
   {
     "type": "photo",
-    "text": "<b>✨ Шесть бойцов получили новые баффи</b>\n\n<i>Мистер П, Лу, Гейл, Мэнди, Честер и Берри.</i>\n\nТеперь баффи можно получить, даже если у тебя нет самого бойца. У Лу, Мэнди, Честера и Берри заодно изменили часть способностей.\n\n💬 <i>Вердикт: привычные сборки этих бойцов стоит проверить заново.</i>\n\nЧей баффи ждёшь больше всего? 👇\n\n#BrawlStars #баффи",
-    "image": "images/2026-11-post-12.png",
+    "image": "https://i0.wp.com/gamingonphone.com/wp-content/uploads/2026/11/brawl-stars-ranked-update.jpg",
+    "text": "<b>🏆 РЕЙТИНГ: НОВЫЙ ЭКРАН ВЫБОРА</b>\n\n<i>Выбирать и запрещать бойцов стало заметно удобнее.</i>\n\n<blockquote><b>🗂 Сетка бойцов</b>\nВидно гаджеты и звёздные силы, есть фильтры и сортировка по классам\n\n<b>🚫 Подсказки</b>\nИгра предлагает, кого запретить\n\n<b>🗺 Подготовка</b>\n3D-превью карты и смена скина перед боем\n\n<b>💬 Быстрый чат</b>\nРаботает во время выбора и запретов</blockquote>\n\n💬 <i>Вердикт: драфт станет понятнее даже новичкам.</i>\n\nЧто тебе нравится больше всего? 👇\n\n#BrawlStars #рейтинг",
     "source": "https://supercell.com/en/games/brawlstars/blog/game-updates/release-notes-november-2026/",
-    "source_name": "Supercell"
+    "source_name": "Supercell",
+    "fallback_image": "images/2026-11-ranked.png"
+  },
+  {
+    "type": "photo",
+    "image": "https://i0.wp.com/gamingonphone.com/wp-content/uploads/2026/11/brawl-stars-brawlidays.jpg",
+    "text": "<b>🎄 СЕЗОН BRAWLIDAYS: СКИНЫ</b>\n\n<i>В игру идёт новогоднее настроение.</i>\n\n<blockquote><b>🎟 Brawl Pass</b>\nSqueak и Драко\n\n<b>💜 Мифические</b>\nBolt, Пэм и Джесси\n\n<b>🌟 Легендарный</b>\nСтарр Нова</blockquote>\n\nА ещё в сезоне будет титул Happy Brawlidays!\n\n💬 <i>Вердикт: у Драко в этом обновлении и усиление, и новый скин.</i>\n\nКого наряжаем первым? 👇\n\n#BrawlStars #Brawlidays",
+    "source": "https://supercell.com/en/games/brawlstars/blog/game-updates/release-notes-november-2026/",
+    "source_name": "Supercell",
+    "fallback_image": "images/2026-11-brawlidays.png"
+  },
+  {
+    "type": "photo",
+    "image": "https://brawlstars.inbox.supercell.com/xdjcscmv3zo3/3r6jShie1W1jkvkGTzYSKO/27fb70deac6390cdf2bbd1a9f533c354/WebsiteHeroNov.png",
+    "text": "<b>⚡ НОВЫЕ ГИПЕРЗАРЯДЫ</b>\n\n<i>Космо и Винс стали заметно опаснее.</i>\n\n<blockquote><b>🌌 Космо: Cosmic Capture</b>\nСнаряд сам летит к цели и обездвиживает её на 2 секунды\n\n<b>🐛 Винс: Bug Swarm</b>\nСупер всегда на максимальной силе и выпускает вокруг гиперзаряженных гусениц</blockquote>\n\n💬 <i>Вердикт: от самонаводящегося снаряда Космо уклоняться будет особенно неприятно.</i>\n\nЧей гиперзаряд сильнее? 👇\n\n#BrawlStars #гиперзаряд",
+    "source": "https://supercell.com/en/games/brawlstars/blog/game-updates/release-notes-november-2026/",
+    "source_name": "Supercell",
+    "fallback_image": "images/2026-11-hypercharge.png"
+  },
+  {
+    "type": "photo",
+    "image": "https://i0.wp.com/gamingonphone.com/wp-content/uploads/2026/11/brawl-stars-misc-skins-1.jpg",
+    "text": "<b>🎨 ЕЩЁ БОЛЬШЕ СКИНОВ</b>\n\n<i>Не только сезонные образы.</i>\n\n<blockquote><b>🌟 Легендарный</b>\nToon Mortis\n\n<b>💜 Мифический</b>\nSteamboat Penny\n\n<b>🎟 Pro Pass</b>\nБиби с тремя этапами\n\n<b>🥇 Для прокачки</b>\nСеребряные и золотые образы Космо и Винса</blockquote>\n\n💬 <i>Вердикт: мультяшный Мортис претендует на лучший скин обновления.</i>\n\nА твой фаворит кто? 👇\n\n#BrawlStars #скины",
+    "source": "https://supercell.com/en/games/brawlstars/blog/game-updates/release-notes-november-2026/",
+    "source_name": "Supercell",
+    "fallback_image": "images/2026-11-skins.png"
   },
   {
     "type": "photo",
