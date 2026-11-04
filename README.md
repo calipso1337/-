@@ -16,6 +16,7 @@
 - Фото из репозитория: `{"type": "photo", "image": "images/post.png", "text": "подпись", "source": "https://...", "source_name": "Supercell"}`
 - Фото по ссылке: `{"type": "photo", "image": "https://...", "text": "подпись"}`
 - Видео до 50 МБ: `{"type": "video", "video": "videos/post.mp4", "text": "подпись"}`
+- Видео с YouTube в посте: `{"type": "text", "text": "...", "video_url": "https://www.youtube.com/watch?v=...", "source": "тот же адрес", "source_name": "YouTube: канал"}`
 - Опрос: `{"type": "poll", "question": "...", "options": ["...", "..."]}`
 - Опрос с картинкой: добавь `image` и `text`. Картинка выйдет отдельным сообщением перед опросом.
 

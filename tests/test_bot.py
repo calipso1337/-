@@ -93,6 +93,14 @@ def test_local_video_is_uploaded(run):
     assert "MP4-test" in text and 'name="video"' in text and 'name="supports_streaming"' in text
 
 
+def test_video_link_shows_player_above_text(run):
+    go, server = run
+    url = "https://www.youtube.com/watch?v=abc"
+    go([{"type": "text", "text": "Смотри", "video_url": url, "source": url, "source_name": "YouTube"}])
+    preview = json.loads(server.calls[0][2])["link_preview_options"]
+    assert preview == {"url": url, "prefer_large_media": True, "show_above_text": True}
+
+
 def test_url_image_uses_json(run):
     go, server = run
     go([{"type": "photo", "image": "https://e.com/a.png", "text": "x"}])
@@ -193,6 +201,7 @@ def test_broken_old_post_does_not_stop_queue(run):
         ({"type": "photo", "image": "https://e.com/a.png", "text": "я" * 1025}, "длиннее 1024"),
         ({"type": "poll", "question": "Да?", "options": ["Да"]}, "от 2 до 10"),
         ({"type": "audio"}, "неизвестный"),
+        ({"type": "text", "text": "x", "video_url": "https://e.com/a"}, "source должен совпадать"),
         ({"type": "video", "video": "videos/none.mp4", "text": "x"}, "не найдено"),
         ({"type": "video", "text": "x"}, "не найдено"),
     ],

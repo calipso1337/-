@@ -147,6 +147,12 @@ def send_photo(token, channel, image, caption, keyboard=None):
     return send_file(token, "sendPhoto", fields, "photo", ROOT / image)
 
 
+def link_preview(post):
+    if not post.get("video_url"):
+        return {"is_disabled": True}
+    return {"url": post["video_url"], "prefer_large_media": True, "show_above_text": True}
+
+
 def send_post_photo(token, channel, post, keyboard=None):
     try:
         return send_photo(token, channel, post["image"], full_text(post), keyboard)
@@ -168,7 +174,7 @@ def publish(token, channel, post):
                 "chat_id": channel,
                 "text": full_text(post),
                 "parse_mode": "HTML",
-                "link_preview_options": {"is_disabled": True},
+                "link_preview_options": link_preview(post),
                 "reply_markup": SHARE_BUTTON,
             },
         )
@@ -217,6 +223,8 @@ def validate_post(post):
             errors.append("вариант опроса пуст или длиннее 100 символов")
     if kind == "text" and not post.get("text", "").strip():
         errors.append("пустой текст")
+    if post.get("video_url") and not (kind == "text" and post["video_url"] == post.get("source")):
+        errors.append("видео по ссылке: нужен текстовый пост, а source должен совпадать с video_url")
     if kind == "photo" and not post.get("image"):
         errors.append("нет картинки")
     for image in (post.get("image"), post.get("fallback_image")):

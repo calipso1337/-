@@ -15,6 +15,7 @@
 
 - Фото: `{"type": "photo", "image": "images/файл.png", "text": "...", "source": "https://...", "source_name": "Supercell"}`
 - Видео: `{"type": "video", "video": "videos/файл.mp4", "text": "...", "source": "https://...", "source_name": "Supercell"}`. Ролик делай через `python3 tools/make_video.py videos/файл.mp4 --kind news --title "..." --subtitle "..." --stat "..." --stat-label "..."`. Не загружай чужие видео.
+- Видео с YouTube: `{"type": "text", "text": "...", "video_url": "https://www.youtube.com/watch?v=...", "source": "тот же адрес", "source_name": "YouTube: канал"}`. Telegram покажет плеер над текстом. Не скачивай и не перезаливай чужие видео. В первую очередь бери официальный канал Brawl Stars, подборки авторов только с детским содержанием и указанием автора.
 - Фото по ссылке: добавь `"fallback_image": "images/файл.png"` с запасной обложкой из `tools/make_image.py`.
 - Таблица: Telegram не поддерживает таблицы в постах, рисуй её через `python3 tools/make_table.py images/файл.png данные.json`.
 - Мем: `python3 tools/make_meme.py images/файл.png "Верхняя подпись" "Нижняя подпись" --style 0`. Шутки только про игру и игровые ситуации, а не про реальных людей.
