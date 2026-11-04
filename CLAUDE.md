@@ -14,6 +14,7 @@
 ## Формат поста
 
 - Фото: `{"type": "photo", "image": "images/файл.png", "text": "...", "source": "https://...", "source_name": "Supercell"}`
+- Видео: `{"type": "video", "video": "videos/файл.mp4", "text": "...", "source": "https://...", "source_name": "Supercell"}`. Ролик делай через `python3 tools/make_video.py videos/файл.mp4 --kind news --title "..." --subtitle "..." --stat "..." --stat-label "..."`. Не загружай чужие видео.
 - Опрос с обложкой: `{"type": "poll", "image": "images/файл.png", "text": "...", "question": "...", "options": ["...", "..."]}`
 - В тексте работает HTML Telegram: `<b>`, `<i>`, `<a href="...">`, `<blockquote>`. Символы `&` и `<` пиши как `&amp;` и `&lt;`.
 - Строку источника и кнопку «Поделиться каналом» бот добавляет сам. Не вставляй их в текст.

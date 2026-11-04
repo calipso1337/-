@@ -22,7 +22,8 @@ ROOT = Path(__file__).resolve().parent
 QUEUE = ROOT / "queue.json"
 STATE = ROOT / "state.json"
 API_BASE = os.environ.get("TELEGRAM_API_BASE", "https://api.telegram.org")
-LIMITS = {"text": 4096, "photo": 1024}
+LIMITS = {"text": 4096, "photo": 1024, "video": 1024}
+VIDEO_SIZE = {"width": 1280, "height": 720, "duration": 6}
 SHARE_URL = "https://t.me/share/url?url=https://t.me/All_About_Brawl"
 SHARE_BUTTON = {"inline_keyboard": [[{"text": "📤 Поделиться каналом", "url": SHARE_URL}]]}
 ALLOWED_TAGS = {"b", "i", "u", "s", "a", "code", "blockquote", "tg-spoiler"}
@@ -159,6 +160,16 @@ def publish(token, channel, post):
         )
     elif kind == "photo":
         send_photo(token, channel, post["image"], full_text(post), SHARE_BUTTON)
+    elif kind == "video":
+        fields = {
+            "chat_id": channel,
+            "caption": full_text(post),
+            "parse_mode": "HTML",
+            "supports_streaming": "true",
+            "reply_markup": json.dumps(SHARE_BUTTON),
+            **VIDEO_SIZE,
+        }
+        send_file(token, "sendVideo", fields, "video", ROOT / post["video"])
     elif kind == "poll":
         # В опрос нельзя вложить картинку, поэтому она выходит сообщением перед ним.
         if post.get("image"):
@@ -180,7 +191,7 @@ def publish(token, channel, post):
 def validate_post(post):
     errors = []
     kind = post.get("type", "text")
-    if kind not in ("text", "photo", "poll"):
+    if kind not in ("text", "photo", "poll", "video"):
         return [f"неизвестный тип {kind}"]
     if kind == "poll":
         options = post.get("options", [])
@@ -201,8 +212,14 @@ def validate_post(post):
             errors.append(f"файл {image} не найден")
         elif path.stat().st_size > 10_000_000:
             errors.append(f"файл {image} больше 10 МБ")
+    if kind == "video":
+        video = (ROOT / post.get("video", "")).resolve()
+        if ROOT not in video.parents or video.suffix != ".mp4" or not video.is_file():
+            errors.append(f"видео {post.get('video')} не найдено")
+        elif video.stat().st_size > 50_000_000:
+            errors.append("видео больше 50 МБ")
     if kind != "poll" or image:
-        limit = LIMITS["text"] if kind == "text" else LIMITS["photo"]
+        limit = LIMITS.get(kind, LIMITS["photo"])
         markup_errors, visible = inspect_markup(full_text(post))
         errors += markup_errors
         if visible > limit:

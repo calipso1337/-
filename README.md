@@ -15,6 +15,7 @@
 - Текст: `{"type": "text", "text": "<b>Заголовок</b>\nТекст"}`
 - Фото из репозитория: `{"type": "photo", "image": "images/post.png", "text": "подпись", "source": "https://...", "source_name": "Supercell"}`
 - Фото по ссылке: `{"type": "photo", "image": "https://...", "text": "подпись"}`
+- Видео до 50 МБ: `{"type": "video", "video": "videos/post.mp4", "text": "подпись"}`
 - Опрос: `{"type": "poll", "question": "...", "options": ["...", "..."]}`
 - Опрос с картинкой: добавь `image` и `text`. Картинка выйдет отдельным сообщением перед опросом.
 
@@ -28,4 +29,4 @@ python3 bot.py --check
 python3 -m pytest tests -q
 ```
 
-Правила для автора постов лежат в `CLAUDE.md`. Обложки рисует `tools/make_image.py`, ему нужен пакет Pillow.
+Правила для автора постов лежат в `CLAUDE.md`. Обложки рисует `tools/make_image.py`, ему нужен пакет Pillow. Анимированные ролики делает `tools/make_video.py`, ему нужны Pillow и ffmpeg.

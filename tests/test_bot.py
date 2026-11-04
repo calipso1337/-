@@ -46,6 +46,8 @@ def run(tmp_path):
     threading.Thread(target=server.serve_forever, daemon=True).start()
     (tmp_path / "images").mkdir()
     (tmp_path / "images" / "a.png").write_bytes(b"\x89PNG-test")
+    (tmp_path / "videos").mkdir()
+    (tmp_path / "videos" / "a.mp4").write_bytes(b"MP4-test")
     (tmp_path / "bot.py").write_text((ROOT / "bot.py").read_text(encoding="utf-8"), encoding="utf-8")
 
     def go(posts, state=0):
@@ -75,6 +77,16 @@ def test_local_image_is_uploaded_with_footer(run):
     assert "a=1&amp;b=2" in text and 'name="parse_mode"' in text
     assert "Источник: e.com" in text and "reply_markup" in text and "t.me/share" in text
     assert "неофициальный" not in text
+
+
+def test_local_video_is_uploaded(run):
+    go, server = run
+    done, state = go([{"type": "video", "video": "videos/a.mp4", "text": "<b>Видео</b>", "source": "https://e.com/a"}])
+    assert done.returncode == 0 and state == 1
+    method, kind, raw = server.calls[0]
+    text = raw.decode("utf-8", "replace")
+    assert method == "sendVideo" and kind.startswith("multipart/form-data")
+    assert "MP4-test" in text and 'name="video"' in text and 'name="supports_streaming"' in text
 
 
 def test_url_image_uses_json(run):
@@ -145,7 +157,9 @@ def test_broken_old_post_does_not_stop_queue(run):
         ({"type": "text", "text": "<div>x</div>"}, "не поддерживается"),
         ({"type": "photo", "image": "https://e.com/a.png", "text": "я" * 1025}, "длиннее 1024"),
         ({"type": "poll", "question": "Да?", "options": ["Да"]}, "от 2 до 10"),
-        ({"type": "video"}, "неизвестный"),
+        ({"type": "audio"}, "неизвестный"),
+        ({"type": "video", "video": "videos/none.mp4", "text": "x"}, "не найдено"),
+        ({"type": "video", "text": "x"}, "не найдено"),
     ],
 )
 def test_validation(post, message):
