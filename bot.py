@@ -16,17 +16,15 @@ import urllib.error
 import urllib.request
 from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parent
 QUEUE = ROOT / "queue.json"
 STATE = ROOT / "state.json"
 API_BASE = os.environ.get("TELEGRAM_API_BASE", "https://api.telegram.org")
 LIMITS = {"text": 4096, "photo": 1024}
-POLICY_URL = "https://supercell.com/en/fan-content-policy/ru/"
-DISCLAIMER = (
-    "ℹ️ Материал неофициальный и не поддерживается компанией Supercell. "
-    f'<a href="{POLICY_URL}">Подробнее</a>'
-)
+SHARE_URL = "https://t.me/share/url?url=https://t.me/All_About_Brawl"
+SHARE_BUTTON = {"inline_keyboard": [[{"text": "📤 Поделиться каналом", "url": SHARE_URL}]]}
 ALLOWED_TAGS = {"b", "i", "u", "s", "a", "code", "blockquote", "tg-spoiler"}
 
 
@@ -67,13 +65,13 @@ def inspect_markup(text):
 
 
 def full_text(post):
-    """Текст поста с подписью, которую бот всегда добавляет сам."""
-    parts = [post.get("text", "").strip()]
-    if post.get("source"):
-        url = html.escape(post["source"], quote=True)
-        parts.append(f'📎 <a href="{url}">Источник</a>')
-    parts.append(DISCLAIMER)
-    return "\n\n".join(part for part in parts if part)
+    """Текст поста со строкой источника, которую бот добавляет сам."""
+    text = post.get("text", "").strip()
+    if not post.get("source"):
+        return text
+    url = html.escape(post["source"], quote=True)
+    name = html.escape(post.get("source_name") or urlsplit(post["source"]).hostname or "ссылка")
+    return f'{text}\n\n<a href="{url}">Источник: {name}</a>'
 
 
 def is_url(image):
@@ -136,10 +134,12 @@ def send_file(token, method, fields, field_name, path):
     return send(f"{API_BASE}/bot{token}/{method}", bytes(body), headers)
 
 
-def send_photo(token, channel, image, caption):
+def send_photo(token, channel, image, caption, keyboard=None):
     fields = {"chat_id": channel, "caption": caption, "parse_mode": "HTML"}
     if is_url(image):
-        return call(token, "sendPhoto", {**fields, "photo": image})
+        return call(token, "sendPhoto", {**fields, "photo": image, "reply_markup": keyboard})
+    if keyboard:
+        fields["reply_markup"] = json.dumps(keyboard)
     return send_file(token, "sendPhoto", fields, "photo", ROOT / image)
 
 
@@ -154,10 +154,11 @@ def publish(token, channel, post):
                 "text": full_text(post),
                 "parse_mode": "HTML",
                 "link_preview_options": {"is_disabled": True},
+                "reply_markup": SHARE_BUTTON,
             },
         )
     elif kind == "photo":
-        send_photo(token, channel, post["image"], full_text(post))
+        send_photo(token, channel, post["image"], full_text(post), SHARE_BUTTON)
     elif kind == "poll":
         # В опрос нельзя вложить картинку, поэтому она выходит сообщением перед ним.
         if post.get("image"):
@@ -169,6 +170,7 @@ def publish(token, channel, post):
                 "chat_id": channel,
                 "question": post["question"],
                 "options": [{"text": option} for option in post["options"]],
+                "reply_markup": SHARE_BUTTON,
             },
         )
     else:

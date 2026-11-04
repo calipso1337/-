@@ -72,7 +72,9 @@ def test_local_image_is_uploaded_with_footer(run):
     text = raw.decode("utf-8", "replace")
     assert method == "sendPhoto" and kind.startswith("multipart/form-data")
     assert "PNG-test" in text and "<b>Заголовок</b>" in text
-    assert "Supercell" in text and "a=1&amp;b=2" in text and 'name="parse_mode"' in text
+    assert "a=1&amp;b=2" in text and 'name="parse_mode"' in text
+    assert "Источник: e.com" in text and "reply_markup" in text and "t.me/share" in text
+    assert "неофициальный" not in text
 
 
 def test_url_image_uses_json(run):
@@ -95,6 +97,20 @@ def test_plain_poll_and_text(run):
     go([{"type": "poll", "question": "Да?", "options": ["Да", "Нет"]}, {"type": "text", "text": "Привет"}], 1)
     payload = json.loads(server.calls[1][2])
     assert server.calls[1][0] == "sendMessage" and payload["link_preview_options"] == {"is_disabled": True}
+
+
+def test_source_name_and_button_in_text_post(run):
+    go, server = run
+    go([{"type": "text", "text": "Привет", "source": "https://e.com/a", "source_name": "Supercell"}])
+    payload = json.loads(server.calls[0][2])
+    assert payload["text"].endswith('<a href="https://e.com/a">Источник: Supercell</a>')
+    assert payload["reply_markup"] == bot.SHARE_BUTTON
+
+
+def test_post_without_source_has_no_footer(run):
+    go, server = run
+    go([{"type": "text", "text": "Привет"}])
+    assert json.loads(server.calls[0][2])["text"] == "Привет"
 
 
 def test_failed_send_keeps_position_and_hides_token(run):
@@ -127,7 +143,7 @@ def test_broken_old_post_does_not_stop_queue(run):
         ({"type": "text", "text": "a & b"}, "&amp;"),
         ({"type": "text", "text": "2 < 3"}, "&lt;"),
         ({"type": "text", "text": "<div>x</div>"}, "не поддерживается"),
-        ({"type": "photo", "image": "https://e.com/a.png", "text": "я" * 1024}, "длиннее 1024"),
+        ({"type": "photo", "image": "https://e.com/a.png", "text": "я" * 1025}, "длиннее 1024"),
         ({"type": "poll", "question": "Да?", "options": ["Да"]}, "от 2 до 10"),
         ({"type": "video"}, "неизвестный"),
     ],
