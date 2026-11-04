@@ -1,0 +1,33 @@
+name: test-now
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/test-now.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: post
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Опубликовать 2 видео сразу
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL: ${{ vars.TELEGRAM_CHANNEL }}
+        run: |
+          git config user.name "channel-bot"
+          git config user.email "channel-bot@users.noreply.github.com"
+          for number in 1 2; do
+            python3 bot.py --now
+            git add state.json
+            git diff --cached --quiet || git commit -m "Опубликован пост"
+            git pull --rebase origin main
+            git push
+            sleep 3
+          done

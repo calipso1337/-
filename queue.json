@@ -61,6 +61,20 @@
     "fallback_image": "images/2026-11-rey-ruby.png"
   },
   {
+    "type": "text",
+    "video_url": "https://www.youtube.com/watch?v=D-EgFgTJOgk",
+    "source": "https://www.youtube.com/watch?v=D-EgFgTJOgk",
+    "source_name": "YouTube: Brawl Stars",
+    "text": "<b>🎬 КУДА ПРОПАЛ ГАС?</b>\n\n<i>Мультик, который посмотрели уже 18,8 млн раз.</i>\n\n<blockquote><b>👻 Сюжет</b>\nГас исчезает в похоронном бюро Мортиса\n\n<b>🎃 Что это</b>\nОфициальный ролик к Brawl-O-ween, 1 минута 40 секунд</blockquote>\n\n💬 <i>Вердикт: идеальная пауза между каткой и следующей каткой.</i>\n\nНашёл бы Гаса? 👇\n\n#BrawlStars #видео"
+  },
+  {
+    "type": "text",
+    "video_url": "https://www.youtube.com/watch?v=WuwxkkSSeug",
+    "source": "https://www.youtube.com/watch?v=WuwxkkSSeug",
+    "source_name": "YouTube: Brawl Stars",
+    "text": "<b>🎬 «БОЛЬШЕ НИКАКОГО BRAWL STARS!»</b>\n\n<i>Официальный ролик про Сириуса.</i>\n\n<blockquote><b>🌌 О чём</b>\nАнимация к появлению бойца Сириуса\n\n<b>🎮 Что ещё показали</b>\nГиперзаряд и режим Shadow Smash</blockquote>\n\n💬 <i>Вердикт: такие ролики снимают с заметным чувством юмора.</i>\n\nКакой персонаж в мультиках смешнее всех? 👇\n\n#BrawlStars #видео"
+  },
+  {
     "type": "poll",
     "question": "Как тебе новые правила рейтинга?",
     "options": [
@@ -84,13 +98,6 @@
     "source": "https://supercell.media/bs/novosti/thunderfrogs-brawl-vice-bs26/",
     "source_name": "Мир Supercell",
     "fallback_image": "images/2026-11-frogs.png"
-  },
-  {
-    "type": "text",
-    "video_url": "https://www.youtube.com/watch?v=D-EgFgTJOgk",
-    "source": "https://www.youtube.com/watch?v=D-EgFgTJOgk",
-    "source_name": "YouTube: Brawl Stars",
-    "text": "<b>🎬 КУДА ПРОПАЛ ГАС?</b>\n\n<i>Мультик, который посмотрели уже 18,8 млн раз.</i>\n\n<blockquote><b>👻 Сюжет</b>\nГас исчезает в похоронном бюро Мортиса\n\n<b>🎃 Что это</b>\nОфициальный ролик к Brawl-O-ween, 1 минута 40 секунд</blockquote>\n\n💬 <i>Вердикт: идеальная пауза между каткой и следующей каткой.</i>\n\nНашёл бы Гаса? 👇\n\n#BrawlStars #видео"
   },
   {
     "type": "photo",
@@ -155,13 +162,6 @@
     "source": "https://supercell.com/en/games/brawlstars/blog/game-updates/release-notes-november-2026/",
     "source_name": "Supercell",
     "fallback_image": "images/2026-11-vice.png"
-  },
-  {
-    "type": "text",
-    "video_url": "https://www.youtube.com/watch?v=WuwxkkSSeug",
-    "source": "https://www.youtube.com/watch?v=WuwxkkSSeug",
-    "source_name": "YouTube: Brawl Stars",
-    "text": "<b>🎬 «БОЛЬШЕ НИКАКОГО BRAWL STARS!»</b>\n\n<i>Официальный ролик про Сириуса.</i>\n\n<blockquote><b>🌌 О чём</b>\nАнимация к появлению бойца Сириуса\n\n<b>🎮 Что ещё показали</b>\nГиперзаряд и режим Shadow Smash</blockquote>\n\n💬 <i>Вердикт: такие ролики снимают с заметным чувством юмора.</i>\n\nКакой персонаж в мультиках смешнее всех? 👇\n\n#BrawlStars #видео"
   },
   {
     "type": "photo",
