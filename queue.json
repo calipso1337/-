@@ -251,5 +251,34 @@
     "image": "images/2026-11-post-13.png",
     "source": "https://blast.tv/gaming/news/brawl-stars-world-finals-set-for-tokyo",
     "source_name": "BLAST"
+  },
+  {
+    "type": "poll",
+    "image": "images/2026-11-06-poll-modes.png",
+    "text": "<b>🎮 КАКОЙ НОВЫЙ РЕЖИМ ЛУЧШИЙ?</b>\n\n<i>Четыре новинки из Brawl Talk, выбрать можно только одну.</i>\n\n<blockquote><b>👑 Мега-Столкновение</b>\n20 игроков на большой карте\n\n<b>💡 Counterlight</b>\nЗажги синие огни на стороне соперника быстрее всех\n\n<b>🏒 Super Hockey</b>\nЗаряженные броски и вратари\n\n<b>🎄 Jingle Brawls</b>\nКаждый боец только один раз</blockquote>\n\nГолосуй в опросе ниже 👇\n\n#BrawlStars #опрос",
+    "question": "Какой новый режим тебе интереснее всего?",
+    "options": [
+      "Мега-Столкновение",
+      "Counterlight",
+      "Super Hockey",
+      "Jingle Brawls"
+    ]
+  },
+  {
+    "type": "photo",
+    "image": "images/2026-11-06-meme-frogs.png",
+    "text": "<b>🐸 ТРЕУГОЛЬНИК СУДЬБЫ</b>\n\n<i>Громожабы учат геометрии лучше любого урока.</i>\n\nТоже думал, что в центре безопасно? 👇\n\n#BrawlStars #мем"
+  },
+  {
+    "type": "poll",
+    "image": "images/2026-11-06-poll-finals.png",
+    "text": "<b>🌏 БУДЕШЬ СМОТРЕТЬ МИРОВОЙ ФИНАЛ?</b>\n\n<i>С 20 по 22 ноября в Токио выберут лучшую команду мира.</i>\n\nГолосуй в опросе ниже 👇\n\n#BrawlStars #киберспорт",
+    "question": "Будешь смотреть мировой финал в Токио?",
+    "options": [
+      "Да, все три дня",
+      "Только финальный матч",
+      "Посмотрю нарезки",
+      "Не смотрю киберспорт"
+    ]
   }
 ]
