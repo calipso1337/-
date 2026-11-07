@@ -280,5 +280,61 @@
       "Посмотрю нарезки",
       "Не смотрю киберспорт"
     ]
+  },
+  {
+    "type": "photo",
+    "image": "https://brawlstars.inbox.supercell.com/xdjcscmv3zo3/7FWxxb9SoJSImadWhYOLug/de87d46a4ff069f7a19e860c1a43aa3f/WF_O1_1920x1080.jpg",
+    "fallback_image": "images/2026-11-07-wf-format.png",
+    "text": "<b>🏟 МИРОВОЙ ФИНАЛ: КАК ВСЁ УСТРОЕНО</b>\n\n<i>Три дня, 12 команд и 24 матча в Токио.</i>\n\n<blockquote><b>📍 Где и когда</b>\nTokyo Metropolitan Gymnasium, 20–22 ноября\n\n<b>🔥 Пятница: группы</b>\n8 команд в двух группах по системе GSL, матчи до трёх побед. Из каждой группы дальше идут двое\n\n<b>⚡ Выходные: плей-офф</b>\n8 команд в сетке double elimination: четверо победителей регионов и четверо лучших из групп</blockquote>\n\nЧемпионы регионов EMEA, Северной и Южной Америки и Восточной Азии сразу попадают в плей-офф.\n\n💬 <i>Вердикт: в пятницу ошибаться нельзя никому, кроме тех, кто уже отдыхает в плей-офф.</i>\n\nКакой день финала ждёшь больше всего? 👇\n\n#BrawlStars #киберспорт",
+    "source": "https://supercell.com/en/games/brawlstars/blog/esports/brawl-stars-world-finals-format",
+    "source_name": "Supercell"
+  },
+  {
+    "type": "photo",
+    "image": "images/2026-11-07-meme-headstart.png",
+    "text": "<b>😎 ПРЕИМУЩЕСТВО ВЕРХНЕЙ СЕТКИ</b>\n\n<i>Когда победа в сетке засчитывается заранее.</i>\n\nВ гранд-финале мирового финала команда из верхней сетки начнёт со счёта 1:0.\n\nА тебе бы такую фору в каждом бою? 👇\n\n#BrawlStars #мем",
+    "source": "https://supercell.com/en/games/brawlstars/blog/esports/brawl-stars-world-finals-format",
+    "source_name": "Supercell"
+  },
+  {
+    "type": "photo",
+    "image": "images/2026-11-07-wf-teams.png",
+    "text": "<b>✈️ КТО УЖЕ ЕДЕТ В ТОКИО</b>\n\n<i>Десять команд получили путёвки ещё до отбора последнего шанса.</i>\n\n<blockquote><b>🌏 Уже в финале</b>\nCrazy Raccoon, ZETA DIVISION, HMBLE, FUT Esports, Reply Totem, NOVO Esports, Team Elektros, Tribe Gaming, Bounty Hunters, Red Canids\n\n<b>🎯 Последний шанс</b>\nЕщё две путёвки разыгрывали восемь команд 17–18 октября в Гуанчжоу, среди них Team Heretics, Natus Vincere и LOUD</blockquote>\n\nСписок приведён по данным The Star на 5 октября.\n\n💬 <i>Вердикт: состав такой плотный, что слабых соперников в Токио не будет.</i>\n\nЗа кого из них болеешь? 👇\n\n#BrawlStars #киберспорт",
+    "source": "https://www.thestar.com.my/aseanplus/aseanplus-news/2026/10/05/one-month-to-go-eight-teams-set-for-last-chance-fight-for-brawl-stars-world-esports-final",
+    "source_name": "The Star"
+  },
+  {
+    "type": "poll",
+    "image": "images/2026-11-07-poll-champion.png",
+    "text": "<b>🏆 КТО ЗАБЕРЁТ ТРОФЕЙ?</b>\n\n<i>Двенадцать команд, один чемпион мира.</i>\n\nГолосуй в опросе ниже 👇\n\n#BrawlStars #киберспорт",
+    "question": "Кто станет чемпионом мира в Токио?",
+    "options": [
+      "Crazy Raccoon",
+      "ZETA DIVISION",
+      "HMBLE",
+      "Tribe Gaming",
+      "Другая команда"
+    ]
+  },
+  {
+    "type": "photo",
+    "image": "images/2026-11-07-wf-prize.png",
+    "text": "<b>💰 МИЛЛИОН ДОЛЛАРОВ НА КОНУ</b>\n\n<i>Столько разыграют на мировом финале в Токио.</i>\n\n<blockquote><b>💵 Призовой фонд</b>\n1 000 000 долларов, и большая часть достанется чемпиону\n\n<b>🏆 Трофей</b>\nПобедитель получит кубок от Thomas Lyte</blockquote>\n\nКак именно поделят деньги между местами, Supercell пока не сообщала.\n\n💬 <i>Вердикт: ставки выше, чем в любом рейтинговом бою.</i>\n\nКакая команда достойна этого кубка? 👇\n\n#BrawlStars #киберспорт",
+    "source": "https://supercell.com/en/games/brawlstars/blog/esports/brawl-stars-world-finals-format",
+    "source_name": "Supercell"
+  },
+  {
+    "type": "poll",
+    "image": "images/2026-11-07-poll-grandfinal.png",
+    "text": "<b>🔮 УГАДАЙ СЧЁТ ГРАНД-ФИНАЛА</b>\n\n<i>Играют до четырёх побед, а команда из верхней сетки начинает с 1:0.</i>\n\nГолосуй в опросе ниже 👇\n\n#BrawlStars #киберспорт",
+    "question": "Чем закончится гранд-финал?",
+    "options": [
+      "Разгром: верхняя сетка 4:0 или 4:1",
+      "Упорно, но победит верхняя сетка",
+      "Нижняя сетка отыграется",
+      "Решит последний матч"
+    ],
+    "source": "https://supercell.com/en/games/brawlstars/blog/esports/brawl-stars-world-finals-format",
+    "source_name": "Supercell"
   }
 ]
