@@ -1,4 +1,4 @@
-"""Официальные фоны для обложек: превью роликов канала Brawl Stars и картинки статей Supercell.
+"""Официальные фоны для обложек: картинки статей блога Supercell (по желанию и превью роликов).
 
 Картинки скачиваются на GitHub в папку .art (в репозиторий не попадают). Для каждого поста
 выбирается фон, у которого больше всего общих слов с текстом, а при равенстве самый
@@ -35,7 +35,10 @@ def real_face(path):
     Детектор обучен на фотографиях людей, мультяшных бойцов он обычно не находит."""
     try:
         import cv2
-    except ImportError:
+
+        cv2.CascadeClassifier  # noqa: B018 - в OpenCV 5 детектора нет
+    except (ImportError, AttributeError):
+        print("Нет детектора лиц OpenCV 4: фоны не проверяются на живых людей")
         return False
     image = cv2.imread(str(path))
     if image is None:
@@ -43,7 +46,7 @@ def real_face(path):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     detector = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
     side = min(gray.shape[:2])
-    faces = detector.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=8, minSize=(side // 8, side // 8))
+    faces = detector.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(side // 12, side // 12))
     return len(faces) > 0
 
 
@@ -91,8 +94,10 @@ def collect(config, limit=15):
     CACHE.mkdir(exist_ok=True)
     found = []
     for name, job in (
-        ("YouTube", lambda: [i for c in config.get("youtube", []) for i in youtube_art(c["channel_id"], limit)]),
-        ("Блог", lambda: blog_art(config["supercell_blog"]["url"], 12) if config.get("supercell_blog") else []),
+        # Превью роликов выключены по умолчанию: в них часто реклама с живыми актёрами.
+        ("YouTube", lambda: [i for c in config.get("youtube", []) for i in youtube_art(c["channel_id"], limit)]
+         if config.get("art_from_youtube") else []),
+        ("Блог", lambda: blog_art(config["supercell_blog"]["url"], 20) if config.get("supercell_blog") else []),
     ):
         try:
             found += job()
@@ -110,7 +115,8 @@ def collect(config, limit=15):
                     break
                 index.append({"id": item["id"], "title": item["title"], "path": str(path)})
                 break
-            except Exception:  # noqa: BLE001
+            except Exception as error:  # noqa: BLE001
+                print(f"Фон {item['id']}: {type(error).__name__}: {error}")
                 continue
     INDEX.write_text(json.dumps(index, ensure_ascii=False), encoding="utf-8")
     print(f"Официальных фонов: {len(index)}")

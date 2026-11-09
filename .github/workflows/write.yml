@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - run: pip install -q pillow pytest opencv-python-headless
+      - run: pip install -q pillow pytest "opencv-python-headless<5"
       - run: python3 writer.py ${{ inputs.restyle && '--restyle' || '' }}
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
