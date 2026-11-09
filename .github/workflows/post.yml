@@ -1,32 +1,50 @@
 name: post
+# Цепочка без внешних сервисов: каждый запуск спит до ближайшего слота, публикует пост
+# и запускает следующий. Если цепочка оборвалась, её перезапускает watchdog.yml
+# или кнопка Run workflow.
 on:
-  # Точное время обеспечивает внешний таймер (cron-job.org): он запускает workflow
-  # за минуту до каждого слота, а бот ждёт точную минуту. Подробнее в README.
   workflow_dispatch:
     inputs:
       now:
-        description: "Опубликовать следующий пост прямо сейчас"
+        description: "Опубликовать следующий пост из очереди прямо сейчас"
         type: boolean
         default: false
-  # Запасной вариант, если внешний таймер не сработал. GitHub запускает расписание
-  # с опозданием, поэтому пост выйдет, только если опоздание меньше 20 минут.
-  schedule:
-    - cron: "3,13 6-19 * * *"
+      test:
+        description: "Пробный пост из источника прямо сейчас"
+        type: choice
+        options: [none, meme, news, video]
+        default: none
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
-  group: post
+  # Ручные и пробные запуски не ждут спящую цепочку.
+  group: ${{ (inputs.now || inputs.test != 'none') && format('post-manual-{0}', github.run_id) || 'post-chain' }}
   cancel-in-progress: false
+
+env:
+  MANUAL: ${{ (inputs.now || inputs.test != 'none') && 'true' || 'false' }}
 
 jobs:
   post:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
-      - run: python3 bot.py
+      - name: Ждать слот
+        if: env.MANUAL == 'false'
+        run: python3 bot.py --sleep
+      - name: Взять свежую очередь
+        run: git pull --ff-only origin main
+      - name: Опубликовать
+        run: |
+          if [ "${{ inputs.test }}" != "none" ] && [ -n "${{ inputs.test }}" ]; then
+            python3 bot.py --test "${{ inputs.test }}"
+          else
+            python3 bot.py
+          fi
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHANNEL: ${{ vars.TELEGRAM_CHANNEL }}
@@ -46,3 +64,23 @@ jobs:
             sleep 5
           done
           exit 1
+      - name: Попросить Gemini дописать посты
+        if: env.MANUAL == 'false'
+        run: |
+          left=$(python3 -c "import json;print(len(json.load(open('queue.json')))-json.load(open('state.json'))['next'])")
+          echo "В очереди $left постов"
+          if [ "$left" -lt 6 ] && [ -z "$(gh run list -w write.yml -s in_progress -L 1 --json databaseId -q '.[].databaseId')" ]; then
+            gh workflow run write.yml --ref main
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  next:
+    needs: post
+    if: always() && (github.event.inputs.now != 'true') && (github.event.inputs.test == 'none' || github.event.inputs.test == '')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Запустить следующее звено цепочки
+        run: gh workflow run post.yml --repo "$GITHUB_REPOSITORY" --ref main
+        env:
+          GH_TOKEN: ${{ github.token }}

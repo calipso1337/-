@@ -134,3 +134,11 @@ def test_failed_source_stays_in_first_run(monkeypatch):
     seen, inbox = {}, []
     sources.fetch_all(CONFIG, inbox, seen, NOW, bot.validate_post)
     assert seen == {} and inbox == []
+
+
+def test_latest_for_test_posts(monkeypatch):
+    monkeypatch.setattr(sources, "get", fake_get({"youtube": RSS, "/blog/news/frog": ARTICLE, "/blog/": BLOG,
+                                                  "reddit": json.dumps({"data": {"children": [reddit_item()]}}).encode()}))
+    assert sources.latest("video", CONFIG)[1] == "new1"
+    assert sources.latest("news", CONFIG)[2]["image"] == "https://cdn.supercell.com/frog.jpg"
+    assert sources.latest("meme", CONFIG)[2]["image"] == "https://i.redd.it/abc.png"

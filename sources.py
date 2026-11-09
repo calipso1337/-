@@ -292,3 +292,28 @@ def fetch_all(config, inbox, seen, now, validate):
                 item["broken"] = True
         inbox[:] = [item for item in inbox if not item.get("broken")]
     inbox[:] = expire(inbox, now)
+
+
+def latest(kind, config):
+    """Самый свежий материал нужного вида без учёта seen.json: для пробных постов.
+
+    Возвращает (ключ seen, id, пост)."""
+    if kind == "video":
+        channel = config["youtube"][0]
+        url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel['channel_id']}"
+        video = parse_youtube(get(url))[0]
+        return f"youtube:{channel['channel_id']}", video["id"], youtube_post(video, channel["name"])
+    if kind == "news":
+        blog = config["supercell_blog"]
+        links = parse_blog_links(get(blog["url"]), blog["url"])
+        for link in links[:5]:
+            post = blog_post(link, parse_meta(get(link)), blog["fallback_image"])
+            if post:
+                return "blog", link, post
+        raise ValueError("в блоге Supercell не нашлось статей")
+    if kind == "meme":
+        memes = parse_reddit(fetch_reddit(config["reddit"]["subreddit"]), config["reddit"])
+        if not memes:
+            raise ValueError("на Reddit сейчас нет подходящих мемов")
+        return "reddit", memes[0]["id"], meme_post(memes[0])
+    raise ValueError(f"неизвестный вид пробного поста: {kind}")

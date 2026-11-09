@@ -1,0 +1,38 @@
+name: write
+# Gemini ищет новости и пишет посты в queue.json. Запускается из post.yml, когда
+# очередь заканчивается, каждую ночь по расписанию или кнопкой Run workflow.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 23 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: write
+  cancel-in-progress: false
+
+jobs:
+  write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install pillow pytest
+      - run: python3 writer.py
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      - run: python3 bot.py --check && python3 -m pytest tests -q
+      - name: Сохранить посты
+        run: |
+          git config user.name "channel-bot"
+          git config user.email "channel-bot@users.noreply.github.com"
+          git add queue.json images
+          git diff --cached --quiet && exit 0
+          git commit -m "Новые посты от Gemini"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main && python3 bot.py --check && git push && exit 0
+            sleep 5
+          done
+          exit 1

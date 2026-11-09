@@ -4,6 +4,8 @@
 python3 bot.py          если подошёл слот расписания, собрать свежие материалы и опубликовать пост
 python3 bot.py --now    опубликовать следующий пост сразу
 python3 bot.py --check  проверить неопубликованные посты, ничего не отправляя
+python3 bot.py --sleep  поспать до ближайшего слота (не дольше MAX_SLEEP), ничего не отправляя
+python3 bot.py --test meme|news|video  сразу опубликовать свежий материал из источника
 
 Что выходит в слот: мем с Reddit (в слотах meme_slots), иначе свежая новость
 (видео YouTube или статья Supercell), иначе следующий пост из queue.json.
@@ -37,6 +39,8 @@ SHARE_URL = "https://t.me/share/url?url=https://t.me/All_About_Brawl"
 SHARE_BUTTON = {"inline_keyboard": [[{"text": "📤 Поделиться каналом", "url": SHARE_URL}]]}
 EARLY = 6 * 60  # Запуск чуть раньше слота: бот всё подготовит и дождётся точной минуты.
 LATE = 20 * 60  # Если запуск опоздал больше чем на 20 минут, слот пропускается.
+WAKE = 4 * 60  # Цепочка запусков просыпается за 4 минуты до слота.
+MAX_SLEEP = 5 * 3600 + 30 * 60  # Задача GitHub живёт не больше 6 часов.
 ALLOWED_TAGS = {"b", "i", "u", "s", "a", "code", "blockquote", "tg-spoiler"}
 
 
@@ -322,6 +326,37 @@ def due_slot(config, state, now):
     return None
 
 
+def next_slot(config, state, now):
+    """Ближайший слот, который ещё можно отработать."""
+    for moment, label, short in slot_times(config, now):
+        if now - moment <= LATE and label > state.get("last_slot", ""):
+            return moment, label, short
+    return None
+
+
+def sleep_until_slot(config, state, now):
+    slot = next_slot(config, state, now)
+    wait = MAX_SLEEP if slot is None else min(max(slot[0] - WAKE - now, 0), MAX_SLEEP)
+    target = f"слота {slot[1]}" if slot and slot[0] - WAKE - now <= MAX_SLEEP else "следующего пробуждения"
+    print(f"Сплю {int(wait // 60)} мин до {target}")
+    return wait
+
+
+def test_post(token, channel, kind, config):
+    import sources
+
+    key, item_id, post = sources.latest(kind, config)
+    errors = validate_post(post)
+    if errors:
+        raise ValueError(f"пробный пост не прошёл проверку: {'; '.join(errors)}")
+    publish(token, channel, post)
+    seen = read_json(SEEN, {})
+    if item_id not in seen.get(key, []) and key in seen:
+        sources.remember(seen, key, item_id)
+        write_json(SEEN, seen)
+    print(f"Пробный пост ({kind}) опубликован: {item_id}")
+
+
 def choose(posts, state, inbox, config, short, day, manual):
     """Что публиковать: ("meme"|"news", элемент inbox) или ("queue", номер) или None."""
     memes = [item for item in inbox if item["kind"] == "meme"]
@@ -351,11 +386,18 @@ def main():
                 raise ValueError(f"inbox {item['id']}: " + "; ".join(errors))
         print(f"Проверено постов: {max(len(posts) - state['next'], 0)}, в inbox: {len(inbox)}. Ошибок нет.")
         return
+    if "--sleep" in sys.argv:
+        time.sleep(sleep_until_slot(config, state, time.time()))
+        return
 
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     channel = os.environ.get("TELEGRAM_CHANNEL")
     if not token or not channel:
         sys.exit("Не заданы TELEGRAM_BOT_TOKEN и TELEGRAM_CHANNEL")
+
+    if "--test" in sys.argv:
+        test_post(token, channel, sys.argv[sys.argv.index("--test") + 1], config)
+        return
 
     now = time.time()
     manual = "--now" in sys.argv or os.environ.get("POST_NOW") == "true"

@@ -1,0 +1,21 @@
+name: watchdog
+# Страховка: если цепочка post.yml оборвалась, запускает её заново.
+on:
+  schedule:
+    - cron: "17 */2 * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          alive=$(gh run list --repo "$GITHUB_REPOSITORY" -w post.yml -L 20 --json status \
+            -q '[.[] | select(.status != "completed")] | length')
+          echo "Активных запусков post.yml: $alive"
+          if [ "$alive" = "0" ]; then gh workflow run post.yml --repo "$GITHUB_REPOSITORY" --ref main; fi
+        env:
+          GH_TOKEN: ${{ github.token }}

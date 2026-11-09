@@ -260,3 +260,12 @@ def test_html_tags_do_not_count_towards_limit():
 def test_real_queue_is_valid():
     posts = json.loads(bot.QUEUE.read_text(encoding="utf-8"))
     bot.validate(posts, bot.load_state()["next"])
+
+
+def test_sleep_until_slot():
+    # 08:00 по Москве: до слота 09:00 час, просыпаемся за 4 минуты.
+    assert bot.sleep_until_slot(MSK, {"next": 0}, NINE - 3600) == 3600 - bot.WAKE
+    # Слот уже идёт: не спим.
+    assert bot.sleep_until_slot(MSK, {"next": 0}, NINE + 60) == 0
+    # После последнего слота дня спим не дольше лимита задачи GitHub.
+    assert bot.sleep_until_slot(MSK, {"next": 0, "last_slot": "2026-11-09 10:00"}, NINE + 7200) == bot.MAX_SLEEP
