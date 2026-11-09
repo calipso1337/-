@@ -3,6 +3,11 @@ name: write
 # очередь заканчивается, каждую ночь по расписанию или кнопкой Run workflow.
 on:
   workflow_dispatch:
+    inputs:
+      restyle:
+        description: "Перерисовать обложки постов в очереди на официальном фоне"
+        type: boolean
+        default: false
   schedule:
     - cron: "41 23 * * *"
 
@@ -20,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: pip install pillow pytest
-      - run: python3 writer.py
+      - run: python3 writer.py ${{ inputs.restyle && '--restyle' || '' }}
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       - run: python3 bot.py --check && python3 -m pytest tests -q
@@ -29,8 +34,9 @@ jobs:
           git config user.name "channel-bot"
           git config user.email "channel-bot@users.noreply.github.com"
           git add queue.json images
+          [ -f art_used.json ] && git add art_used.json
           git diff --cached --quiet && exit 0
-          git commit -m "Новые посты от Gemini"
+          git commit -m "${{ inputs.restyle && 'Новые обложки на официальном фоне' || 'Новые посты от Gemini' }}"
           for attempt in 1 2 3; do
             git pull --rebase origin main && python3 bot.py --check && git push && exit 0
             sleep 5

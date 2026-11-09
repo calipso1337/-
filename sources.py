@@ -72,10 +72,10 @@ def parse_youtube(xml_bytes):
 
 def youtube_post(video, channel_name):
     text = (
-        f"<b>🎬 НОВОЕ ВИДЕО {html.escape(channel_name.upper(), quote=False)}</b>\n\n"
+        f"<b>🎬 НОВОЕ ВИДЕО {html.escape(channel_name.upper(), quote=False)}</b>\n"
         f"<i>{clean(video['title'], 200)}</i>\n\n"
-        "Плеер прямо над текстом, смотри не выходя из Telegram 👆\n\n"
-        "Как тебе ролик? 👇\n\n"
+        "▶️ Плеер прямо над постом, смотри не выходя из Telegram\n\n"
+        "🔥 уже посмотрел · 👀 смотрю сейчас\n\n"
         "#BrawlStars #видео"
     )
     return {
@@ -127,10 +127,10 @@ def blog_post(url, meta, fallback_image):
     if not title:
         return None
     description = clean(meta.get("og:description") or meta.get("description"), 400)
-    text = f"<b>📰 НОВОЕ В БЛОГЕ SUPERCELL</b>\n\n<i>{title}</i>"
+    text = f"<b>📰 СВЕЖЕЕ ОТ SUPERCELL</b>\n<i>{title}</i>"
     if description:
         text += f"\n\n<blockquote>{description}</blockquote>"
-    text += "\n\nЧто думаешь об этом? 👇\n\n#BrawlStars #новости"
+    text += "\n\n📌 Всё подробно в статье по ссылке ниже\n\n💬 Ждал такое? Ставь 🔥 или 🗿\n\n#BrawlStars #новости"
     image = meta.get("og:image") or ""
     if image.startswith("https://"):
         return {"type": "photo", "image": image, "fallback_image": fallback_image, "text": text,
@@ -190,10 +190,10 @@ def parse_reddit(listing, config):
 def meme_post(post):
     author = post.get("author") or "автор"
     text = (
-        "<b>😂 МЕМ ДНЯ</b>\n\n"
+        "<b>😂 МЕМ ДНЯ</b>\n"
         f"<i>{clean(post.get('title'), 250)}</i>\n\n"
-        f"Автор: u/{html.escape(author, quote=False)}\n\n"
-        "Узнал себя? 👇\n\n"
+        f"✍️ Автор: u/{html.escape(author, quote=False)}\n\n"
+        "Узнал себя? Ставь 😂\n\n"
         "#BrawlStars #мем"
     )
     return {

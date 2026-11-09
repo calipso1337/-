@@ -54,7 +54,7 @@ def test_build_news_poll_meme(no_network):
     assert reason is None and post["type"] == "poll" and post["options"] == ["А", "Б"]
     meme = {"kind": "meme", "text": "<b>😂 МЕМ</b>", "top": "Когда открыл ящик", "bottom": "А там монетки"}
     post, reason = writer.build(meme, set(), "2026-11-09", 3)
-    assert reason is None and post["image"].endswith("-03.png")
+    assert reason is None and post["image"].endswith("-03-meme.png")
 
 
 @pytest.mark.parametrize(

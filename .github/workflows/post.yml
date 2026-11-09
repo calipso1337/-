@@ -12,7 +12,7 @@ on:
       test:
         description: "Пробный пост из источника прямо сейчас"
         type: choice
-        options: [none, meme, news, video]
+        options: [none, meme, news, video, gemini_tip, gemini_poll, gemini_meme]
         default: none
 
 permissions:
@@ -40,7 +40,10 @@ jobs:
         run: git pull --ff-only origin main
       - name: Опубликовать
         run: |
-          if [ "${{ inputs.test }}" != "none" ] && [ -n "${{ inputs.test }}" ]; then
+          if [[ "${{ inputs.test }}" == gemini_* ]]; then
+            pip install -q pillow
+            python3 writer.py --publish "${TEST#gemini_}"
+          elif [ "${{ inputs.test }}" != "none" ] && [ -n "${{ inputs.test }}" ]; then
             python3 bot.py --test "${{ inputs.test }}"
           else
             python3 bot.py
@@ -51,12 +54,15 @@ jobs:
           REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
           REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
           POST_NOW: ${{ inputs.now }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TEST: ${{ inputs.test }}
       - name: Запомнить прогресс
         if: always()
         run: |
           git config user.name "channel-bot"
           git config user.email "channel-bot@users.noreply.github.com"
           for file in state.json inbox.json seen.json; do [ -f "$file" ] && git add "$file"; done
+          git add images 2>/dev/null || true
           git diff --cached --quiet && exit 0
           git commit -m "Опубликован пост"
           for attempt in 1 2 3; do

@@ -3,6 +3,8 @@
 
 python3 writer.py          дописать посты, если неопубликованных меньше TARGET
 python3 writer.py --dry    показать, что получилось бы, ничего не меняя
+python3 writer.py --publish tip|poll|meme   сразу опубликовать один новый пост (проверка)
+python3 writer.py --restyle  перерисовать обложки неопубликованных постов на официальном фоне
 
 Нужен секрет GEMINI_API_KEY (бесплатный ключ: https://aistudio.google.com/apikey).
 Gemini сам ищет новости и пишет тексты. Скрипт проверяет каждый пост, рисует обложки
@@ -20,6 +22,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import art
 import bot
 import sources
 
@@ -52,23 +55,23 @@ RULES = """Ты редактор русскоязычного Telegram-кана�
 Сделай смесь: новости и разборы, 2-3 опроса, 1-2 мема, советы. Не повторяй эти темы, они уже были:
 {recent}
 
-Формат текста поста (HTML Telegram, только теги b, i, blockquote, a):
-<b>🚀 ЗАГОЛОВОК ЗАГЛАВНЫМИ БУКВАМИ</b>
-
+Формат текста поста (HTML Telegram, только теги b, i, blockquote, a). Каждый факт в своей
+цитате, так в Telegram получаются красивые карточки:
+<b>🔥 ЗАГОЛОВОК ЗАГЛАВНЫМИ БУКВАМИ</b>
 <i>Короткая живая подводка в одну строку.</i>
 
-<blockquote><b>🔥 Подзаголовок</b>
-Факт
+<blockquote><b>⚡ Подзаголовок</b>
+Факт или совет в 1-2 предложения.</blockquote>
+<blockquote><b>🎯 Подзаголовок</b>
+Факт или совет в 1-2 предложения.</blockquote>
 
-<b>⚡ Подзаголовок</b>
-Факт</blockquote>
+🏆 <b>Вердикт:</b> <i>мнение редакции в одном предложении.</i>
 
-💬 <i>Вердикт: вывод в одном предложении.</i>
-
-Вопрос читателям? 👇
+💬 Вопрос читателям? Ставь 🔥 или 🗿
 
 #BrawlStars #тема
 
+Эмодзи подбирай по смыслу и не повторяй одни и те же во всех постах.
 Правила: текст не длиннее 800 символов; символы & и < пиши как &amp; и &lt;; не добавляй
 ссылку на источник в текст (её добавит бот); не заканчивай обещаниями вроде «оставайся на связи».
 Нельзя: сливы неанонсированного контента, приватные серверы, читы, обход блокировок и VPN,
@@ -186,8 +189,24 @@ def official_image(url):
     return image if image.startswith("https://") else None
 
 
-def draw(script, path, args):
-    subprocess.run([sys.executable, str(ROOT / "tools" / script), str(path), *args],
+ART_USED = ROOT / "art_used.json"
+BACKGROUNDS = {"index": [], "used": []}
+
+
+def prepare_backgrounds(config):
+    BACKGROUNDS["index"] = art.collect(config)
+    BACKGROUNDS["used"] = bot.read_json(ART_USED, [])
+
+
+def save_backgrounds():
+    if BACKGROUNDS["index"]:
+        bot.write_json(ART_USED, BACKGROUNDS["used"])
+
+
+def draw(path, args, topic=""):
+    background = art.pick(topic, BACKGROUNDS["index"], BACKGROUNDS["used"])
+    extra = ["--bg", background] if background else []
+    subprocess.run([sys.executable, str(ROOT / "tools" / "make_cover.py"), str(path), *args, *extra],
                    check=True, capture_output=True, text=True)
 
 
@@ -207,7 +226,7 @@ def build(item, grounded, stamp, number):
     everything = " ".join(str(item.get(k, "")) for k in ("text", "question", "options", "top", "bottom"))
     if BANNED.search(everything):
         return None, "запрещённая тема"
-    name = f"images/{stamp}-gemini-{number:02d}"
+    name = f"images/{stamp}-gemini-{number:02d}" + ("-meme" if kind == "meme" else "")
     post = {"text": text}
     if kind == "news":
         source = item.get("source", "")
@@ -215,7 +234,7 @@ def build(item, grounded, stamp, number):
             return None, f"источник не подтверждён поиском: {source or 'нет'}"
         post.update(source=source, source_name="Supercell" if domain(source) == "supercell.com" else domain(source))
     if kind in ("news", "tip", "poll"):
-        draw("make_image.py", ROOT / f"{name}.png", cover_args(item.get("cover") or {}))
+        draw(ROOT / f"{name}.png", cover_args(item.get("cover") or {}), everything)
         post.update(type="photo", image=f"{name}.png")
         image = official_image(post.get("source", "")) if kind == "news" else None
         if image:
@@ -224,7 +243,7 @@ def build(item, grounded, stamp, number):
         top, bottom = str(item.get("top", ""))[:80], str(item.get("bottom", ""))[:80]
         if not top or not bottom:
             return None, "у мема нет подписей"
-        draw("make_meme.py", ROOT / f"{name}.png", [top, bottom, "--style", str(number % 5)])
+        draw(ROOT / f"{name}.png", ["--meme", top, bottom], everything)
         post.update(type="photo", image=f"{name}.png")
     else:
         return None, f"неизвестный вид {kind}"
@@ -240,31 +259,25 @@ def build(item, grounded, stamp, number):
     return post, None
 
 
-def main():
-    posts, left = unpublished()
-    if left >= TARGET:
-        print(f"В очереди {left} постов, пополнять не нужно")
-        return
-    if not os.environ.get("GEMINI_API_KEY"):
-        sys.exit("Не задан секрет GEMINI_API_KEY: добавь ключ из https://aistudio.google.com/apikey")
-    count = min(TARGET - left, MAX_PER_RUN)
-    config = bot.load_config()
+def generate(count, posts, inbox, config, only=None):
+    """Просит у Gemini count постов. only: нужен ровно один вид (tip, poll, meme)."""
     models = [config["gemini_model"]] if config.get("gemini_model") else DEFAULT_MODELS
     zone = timezone(timedelta(hours=config.get("timezone_offset_hours", 3)))
     today = datetime.now(zone).date().isoformat()
-    inbox = bot.read_json(bot.INBOX, [])
-    items, grounded, search = [], set(), config.get("gemini_search", True)
+    items, grounded, search = [], set(), config.get("gemini_search", True) and not only
     while len(items) < count:
         part = min(PER_CALL, count - len(items))
         done = "".join(f"\n- {headline(i.get('text'))}" for i in items if isinstance(i, dict))
         prompt = RULES.format(count=part, date=today, recent=(recent_topics(posts, inbox) + done) or "- пока ничего")
+        if only:
+            prompt += f"\n\nСделай ровно {part} пост(а) вида kind={only}, другие виды не нужны."
         try:
             if not search:
                 raise RuntimeError("поиск выключен")
             got, found = parse_reply(ask_gemini(prompt, models))
         except RuntimeError as error:
             # На бесплатном тарифе поиск Google бывает недоступен: тогда без новостей.
-            print(f"С поиском не получилось ({str(error)[:200]}), пишу посты без новостей")
+            print(f"Без поиска ({str(error)[:200]}), пишу посты без новостей")
             search = False
             try:
                 got, found = parse_reply(ask_gemini(prompt + OFFLINE, models, search=False))
@@ -274,14 +287,21 @@ def main():
                 print(f"Следующая порция не получилась: {str(error)[:200]}")
                 break
             got = [item for item in got if isinstance(item, dict) and item.get("kind") != "news"]
+        if only:
+            got = [item for item in got if isinstance(item, dict) and item.get("kind") == only]
         if not got:
             break
         items += got[:part]
         grounded |= found
     print(f"Gemini предложил {len(items)} постов, источники поиска: {', '.join(sorted(grounded)) or 'нет'}")
+    return items, grounded
+
+
+def build_all(items, grounded, config, tag="gemini"):
+    zone = timezone(timedelta(hours=config.get("timezone_offset_hours", 3)))
+    stamp = datetime.now(zone).strftime("%Y-%m-%d-%H%M") + ("" if tag == "gemini" else f"-{tag}")
     added = []
-    stamp = datetime.now(zone).strftime("%Y-%m-%d-%H%M")
-    for number, item in enumerate(items[:count], 1):
+    for number, item in enumerate(items, 1):
         if not isinstance(item, dict):
             continue
         post, reason = build(item, grounded, stamp, number)
@@ -290,6 +310,77 @@ def main():
             print(f"+ {headline(post.get('text') or post.get('question'))}")
         else:
             print(f"- пропущен ({reason}): {headline(item.get('text'))}")
+    return added
+
+
+GUESS = [("poll", "poll"), ("баф", "buff"), ("усилен", "buff"), ("нерф", "nerf"), ("ослабл", "nerf"),
+         ("киберспорт", "esports"), ("чемпионат", "esports"), ("финал", "esports"), ("ютуб", "creator"),
+         ("креатор", "creator"), ("рекорд", "record"), ("обновлен", "update"), ("патч", "update"),
+         ("бойц", "brawler"), ("совет", "fun"), ("гайд", "fun"), ("важно", "warning"), ("мошен", "warning")]
+
+
+def guess_kind(post):
+    text = (post.get("type", "") + " " + (post.get("text") or "")).lower()
+    for word, kind in GUESS:
+        if word in text:
+            return kind
+    return "news"
+
+
+def restyle(posts, start):
+    """Новые обложки для неопубликованных постов с обычными обложками (мемы не трогаем)."""
+    changed = 0
+    for index in range(start, len(posts)):
+        post = posts[index]
+        field = "fallback_image" if bot.is_url(post.get("image", "")) else "image"
+        image = post.get(field, "")
+        if not image or bot.is_url(image) or "meme" in image or "restyle" in image or "#мем" in (post.get("text") or ""):
+            continue
+        from PIL import Image
+
+        with Image.open(ROOT / image) as picture:
+            if picture.width == picture.height:  # Квадрат это мем с подписями: его не перерисовать.
+                continue
+        lead = re.search(r"<i>(.*?)</i>", post.get("text") or "", re.DOTALL)
+        title = headline(post.get("text") or post.get("question"))
+        subtitle = re.sub(r"<[^>]+>", "", lead.group(1)) if lead else ""
+        new = f"images/restyle-{Path(image).stem}.png"
+        draw(ROOT / new, ["--kind", guess_kind(post), "--title", title[:70], "--subtitle", subtitle[:90]],
+             (post.get("text") or "") + " " + (post.get("question") or ""))
+        post[field] = new
+        changed += 1
+        print(f"Новая обложка: {title}")
+    return changed
+
+
+def main():
+    config = bot.load_config()
+    posts, left = unpublished()
+    if "--restyle" in sys.argv:
+        prepare_backgrounds(config)
+        changed = restyle(posts, bot.load_state()["next"])
+        bot.QUEUE.write_text(json.dumps(posts, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        save_backgrounds()
+        print(f"Перерисовано обложек: {changed}")
+        return
+    only = sys.argv[sys.argv.index("--publish") + 1] if "--publish" in sys.argv else None
+    if left >= TARGET and not only:
+        print(f"В очереди {left} постов, пополнять не нужно")
+        return
+    if not os.environ.get("GEMINI_API_KEY"):
+        sys.exit("Не задан секрет GEMINI_API_KEY: добавь ключ из https://aistudio.google.com/apikey")
+    count = 1 if only else min(TARGET - left, MAX_PER_RUN)
+    inbox = bot.read_json(bot.INBOX, [])
+    prepare_backgrounds(config)
+    items, grounded = generate(count, posts, inbox, config, only)
+    added = build_all(items[:count], grounded, config, "test" if only else "gemini")
+    save_backgrounds()
+    if only:
+        if not added:
+            sys.exit("Gemini не сделал подходящий пост, попробуй ещё раз")
+        bot.publish(os.environ["TELEGRAM_BOT_TOKEN"], os.environ["TELEGRAM_CHANNEL"], added[0])
+        print(f"Пробный пост ({only}) опубликован")
+        return
     if "--dry" in sys.argv:
         print(json.dumps(added, ensure_ascii=False, indent=1))
         return
