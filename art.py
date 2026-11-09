@@ -1,4 +1,4 @@
-"""Официальные фоны для обложек: картинки статей блога Supercell (по желанию и превью роликов).
+"""Официальные фоны для обложек: кадры из роликов канала Brawl Stars (мультфильмы, геймплей).
 
 Картинки скачиваются на GitHub в папку .art (в репозиторий не попадают). Для каждого поста
 выбирается фон, у которого больше всего общих слов с текстом, а при равенстве самый
@@ -24,7 +24,7 @@ def words(text):
 
 def download(url, path):
     data = sources.get(url, timeout=30)
-    if len(data) < 5000:  # Заглушка YouTube для отсутствующего превью весит ~1 КБ.
+    if len(data) < 8000:  # Заглушка YouTube для отсутствующего кадра весит ~1 КБ.
         raise ValueError("слишком маленькая картинка")
     path.write_bytes(data)
 
@@ -72,9 +72,11 @@ def youtube_art(channel_id, limit):
         if link is not None and "/shorts/" in link.get("href", ""):
             continue  # В Shorts часто живые люди и вертикальный кадр.
         if video_id:
-            items.append({"id": f"yt-{video_id}", "title": title,
-                          "urls": [f"https://i.ytimg.com/vi/{video_id}/maxresdefault.jpg",
-                                   f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"]})
+            # Кадры примерно с 25, 50 и 75 процентов ролика: моменты из игры без надписей превью.
+            for n in (1, 2, 3):
+                items.append({"id": f"yt-{video_id}-{n}", "title": title,
+                              "urls": [f"https://i.ytimg.com/vi/{video_id}/maxres{n}.jpg",
+                                       f"https://i.ytimg.com/vi/{video_id}/hq{n}.jpg"]})
     return items
 
 
@@ -94,10 +96,9 @@ def collect(config, limit=15):
     CACHE.mkdir(exist_ok=True)
     found = []
     for name, job in (
-        # Превью роликов выключены по умолчанию: в них часто реклама с живыми актёрами.
-        ("YouTube", lambda: [i for c in config.get("youtube", []) for i in youtube_art(c["channel_id"], limit)]
-         if config.get("art_from_youtube") else []),
-        ("Блог", lambda: blog_art(config["supercell_blog"]["url"], 20) if config.get("supercell_blog") else []),
+        ("YouTube", lambda: [i for c in config.get("youtube", []) for i in youtube_art(c["channel_id"], limit)]),
+        # Картинки статей блога выключены по умолчанию: на них крупные надписи.
+        ("Блог", lambda: blog_art(config["supercell_blog"]["url"], 20) if config.get("art_from_blog") else []),
     ):
         try:
             found += job()

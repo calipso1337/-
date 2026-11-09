@@ -62,13 +62,13 @@ def cover_crop(image, width, height):
 def art_background(path, width, height, accent):
     """Фото на весь кадр: чуть размыто и затемнено, слева плотнее под текст."""
     photo = cover_crop(Image.open(path), width, height)
-    photo = photo.filter(ImageFilter.GaussianBlur(1.2 * S))
+    photo = photo.filter(ImageFilter.GaussianBlur(0.5 * S))
     photo = ImageOps.autocontrast(photo, cutoff=1)
     canvas = photo.convert("RGBA")
     shade = Image.new("L", (width, 1))
     for x in range(width):
         t = x / width
-        shade.putpixel((x, 0), int(235 - 170 * min(t / 0.75, 1)))
+        shade.putpixel((x, 0), int(230 - 195 * min(t / 0.7, 1)))
     shade = shade.resize((width, height))
     dark = Image.new("RGBA", (width, height), (8, 6, 22, 255))
     canvas = Image.composite(dark, canvas, shade)
