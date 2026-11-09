@@ -71,3 +71,15 @@ def test_build_rejects(no_network, item, reason):
     post, why = writer.build(item, set(), "2026-11-09", 1)
     assert post is None and reason in why
     assert list((no_network / "images").iterdir()) == []
+
+
+@pytest.mark.parametrize("text", ["Учитывай перезарядку", "Считаю, что Мортис силён", "Читай карту заранее",
+                                  "Защита ворот в Броулболе", "Где апать ранги проще", "Заставка нового сезона"])
+def test_banned_filter_allows_normal_words(text):
+    assert not writer.BANNED.search(text)
+
+
+@pytest.mark.parametrize("text", ["Где скачать читы", "Бесплатные гемы тут", "Приватный сервер Brawl", "Слив нового бойца",
+                                  "Розыгрыш аккаунта", "Как заработать на игре"])
+def test_banned_filter_blocks(text):
+    assert writer.BANNED.search(text)
