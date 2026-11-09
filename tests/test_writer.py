@@ -83,3 +83,8 @@ def test_banned_filter_allows_normal_words(text):
                                   "Розыгрыш аккаунта", "Как заработать на игре"])
 def test_banned_filter_blocks(text):
     assert writer.BANNED.search(text)
+
+
+@pytest.mark.parametrize("text", ["Сливайся с кустами", "Делай ставку на контроль", "Чекай кусты"])
+def test_banned_filter_game_slang(text):
+    assert not writer.BANNED.search(text)

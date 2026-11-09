@@ -36,8 +36,8 @@ OFFICIAL = {"supercell.com", "brawlstars.com", "youtube.com", "inbox.supercell.c
 COVER_KINDS = {"tip", "news", "update", "buff", "nerf", "brawler", "poll", "warning", "esports",
                "creator", "record", "fun", "meme"}
 BANNED = re.compile(
-    r"\b(слив\w*|утечк\w*|приватн\w* сервер\w*|чит|читы|читам\w*|читер\w*|взлом\w*|vpn|впн|"
-    r"обход\w* блокиров\w*|бесплатн\w* гем\w*|розыгрыш\w*|раздач\w* гем\w*|казино|ставк[аиу]\w*|"
+    r"\b(слив|сливы|сливов|слива|утечк\w*|приватн\w* сервер\w*|чит|читы|читам\w*|читер\w*|взлом\w*|vpn|впн|"
+    r"обход\w* блокиров\w*|бесплатн\w* гем\w*|розыгрыш\w*|раздач\w* гем\w*|казино|ставк\w* на матч\w*|"
     r"заработ\w*|продаж\w* аккаунт\w*|купить аккаунт\w*|политик\w*)\b|18\+",
     re.IGNORECASE,
 )
@@ -225,7 +225,7 @@ def build(item, grounded, stamp, number):
     text = (item.get("text") or "").strip()
     everything = " ".join(str(item.get(k, "")) for k in ("text", "question", "options", "top", "bottom"))
     if BANNED.search(everything):
-        return None, "запрещённая тема"
+        return None, f"запрещённая тема: {BANNED.search(everything).group(0)}"
     name = f"images/{stamp}-gemini-{number:02d}" + ("-meme" if kind == "meme" else "")
     post = {"text": text}
     if kind == "news":
