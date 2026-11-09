@@ -33,7 +33,7 @@ PER_CALL = 5  # Большой ответ Gemini пишет долго, поэт
 API = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 DEFAULT_MODELS = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-flash-lite-latest"]
 OFFICIAL = {"supercell.com", "brawlstars.com", "youtube.com", "inbox.supercell.com"}
-COVER_KINDS = {"news", "update", "buff", "nerf", "brawler", "poll", "warning", "esports",
+COVER_KINDS = {"tip", "news", "update", "buff", "nerf", "brawler", "poll", "warning", "esports",
                "creator", "record", "fun", "meme"}
 BANNED = re.compile(
     r"\b(слив\w*|утечк\w*|приватн\w* сервер\w*|чит|читы|читам\w*|читер\w*|взлом\w*|vpn|впн|"
@@ -83,7 +83,7 @@ RULES = """Ты редактор русскоязычного Telegram-кана�
   "cover": {{"kind": "news|update|buff|nerf|brawler|esports|creator|record|warning",
              "title": "до 40 символов", "subtitle": "до 60 символов", "stat": "короткое число или пусто",
              "stat_label": "подпись к числу или пусто"}}}}
-{{"kind": "tip", "text": "...", "cover": {{...как выше, kind fun или brawler...}}}}
+{{"kind": "tip", "text": "...", "cover": {{...как выше, kind tip, fun или brawler...}}}}
 {{"kind": "poll", "text": "короткий пост перед опросом", "question": "до 250 символов",
   "options": ["2-6 вариантов до 90 символов"], "cover": {{"kind": "poll", "title": "...", "subtitle": "..."}}}}
 {{"kind": "meme", "text": "короткая подпись к мему в формате выше, без blockquote",
@@ -316,7 +316,8 @@ def build_all(items, grounded, config, tag="gemini"):
 GUESS = [("poll", "poll"), ("баф", "buff"), ("усилен", "buff"), ("нерф", "nerf"), ("ослабл", "nerf"),
          ("киберспорт", "esports"), ("чемпионат", "esports"), ("финал", "esports"), ("ютуб", "creator"),
          ("креатор", "creator"), ("рекорд", "record"), ("обновлен", "update"), ("патч", "update"),
-         ("бойц", "brawler"), ("совет", "fun"), ("гайд", "fun"), ("важно", "warning"), ("мошен", "warning")]
+         ("совет", "tip"), ("гайд", "tip"), ("как играть", "tip"), ("как забивать", "tip"),
+         ("секрет", "tip"), ("бойц", "brawler"), ("важно", "warning"), ("мошен", "warning")]
 
 
 def guess_kind(post):
@@ -334,7 +335,7 @@ def restyle(posts, start):
         post = posts[index]
         field = "fallback_image" if bot.is_url(post.get("image", "")) else "image"
         image = post.get(field, "")
-        if not image or bot.is_url(image) or "meme" in image or "restyle" in image or "#мем" in (post.get("text") or ""):
+        if not image or bot.is_url(image) or "meme" in image or "#мем" in (post.get("text") or ""):
             continue
         from PIL import Image
 
@@ -344,7 +345,7 @@ def restyle(posts, start):
         lead = re.search(r"<i>(.*?)</i>", post.get("text") or "", re.DOTALL)
         title = headline(post.get("text") or post.get("question"))
         subtitle = re.sub(r"<[^>]+>", "", lead.group(1)) if lead else ""
-        new = f"images/restyle-{Path(image).stem}.png"
+        new = f"images/restyle-{Path(image).stem.removeprefix('restyle-')}.png"
         draw(ROOT / new, ["--kind", guess_kind(post), "--title", title[:70], "--subtitle", subtitle[:90]],
              (post.get("text") or "") + " " + (post.get("question") or ""))
         post[field] = new

@@ -41,7 +41,7 @@ jobs:
       - name: Опубликовать
         run: |
           if [[ "${{ inputs.test }}" == gemini_* ]]; then
-            pip install -q pillow
+            pip install -q pillow opencv-python-headless
             python3 writer.py --publish "${TEST#gemini_}"
           elif [ "${{ inputs.test }}" != "none" ] && [ -n "${{ inputs.test }}" ]; then
             python3 bot.py --test "${{ inputs.test }}"
