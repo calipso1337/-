@@ -31,7 +31,7 @@ TARGET = 14
 MAX_PER_RUN = 10
 PER_CALL = 5  # Большой ответ Gemini пишет долго, поэтому просим порциями.
 API = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-DEFAULT_MODELS = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-flash-lite-latest"]
+DEFAULT_MODELS = ["gemini-flash-latest", "gemini-3.8-flash", "gemini-flash-lite-latest"]
 OFFICIAL = {"supercell.com", "brawlstars.com", "youtube.com", "inbox.supercell.com"}
 COVER_KINDS = {"tip", "news", "update", "buff", "nerf", "brawler", "poll", "warning", "esports",
                "creator", "record", "fun", "meme"}
@@ -130,7 +130,7 @@ def ask_gemini(prompt, models, search=True):
         )
         for attempt in range(3):
             try:
-                with urllib.request.urlopen(request, timeout=420) as response:
+                with urllib.request.urlopen(request, timeout=240) as response:
                     reply = json.load(response)
                 print(f"Ответил {model}")
                 return reply
