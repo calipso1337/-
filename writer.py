@@ -26,6 +26,7 @@ import sources
 ROOT = Path(__file__).resolve().parent
 TARGET = 14
 MAX_PER_RUN = 10
+PER_CALL = 5  # Большой ответ Gemini пишет долго, поэтому просим порциями.
 API = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 DEFAULT_MODELS = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-flash-lite-latest"]
 OFFICIAL = {"supercell.com", "brawlstars.com", "youtube.com", "inbox.supercell.com"}
@@ -124,20 +125,22 @@ def ask_gemini(prompt, models, search=True):
         )
         for attempt in range(3):
             try:
-                with urllib.request.urlopen(request, timeout=180) as response:
+                with urllib.request.urlopen(request, timeout=420) as response:
                     reply = json.load(response)
                 print(f"Ответил {model}")
                 return reply
             except urllib.error.HTTPError as error:
                 detail = " ".join(error.read().decode("utf-8", "replace").split())[:700]
                 last = f"{model}: HTTP {error.code} {detail}"
-                if error.code in (429, 500, 503) and attempt < 2:
+                no_quota = error.code == 429 and "exceeded your current quota" in detail
+                if error.code in (429, 500, 503) and attempt < 2 and not no_quota:
                     time.sleep(20 * (attempt + 1))
                     continue
                 break
-            except urllib.error.URLError as error:
-                last = f"{model}: {error.reason}"
-                time.sleep(10)
+            except (urllib.error.URLError, TimeoutError, OSError) as error:
+                last = f"{model}: {getattr(error, 'reason', error)}"
+                print(f"Gemini не ответил: {last}")
+                break
         print(f"Gemini не ответил: {last}")
     raise RuntimeError(f"Gemini недоступен: {last}")
 
@@ -248,14 +251,31 @@ def main():
     zone = timezone(timedelta(hours=config.get("timezone_offset_hours", 3)))
     today = datetime.now(zone).date().isoformat()
     inbox = bot.read_json(bot.INBOX, [])
-    prompt = RULES.format(count=count, date=today, recent=recent_topics(posts, inbox) or "- пока ничего")
-    try:
-        items, grounded = parse_reply(ask_gemini(prompt, models))
-    except RuntimeError as error:
-        # На бесплатном тарифе поиск Google бывает недоступен: тогда без новостей.
-        print(f"С поиском не получилось ({error}), пишу посты без новостей")
-        items, grounded = parse_reply(ask_gemini(prompt + OFFLINE, models, search=False))
-        items = [item for item in items if isinstance(item, dict) and item.get("kind") != "news"]
+    items, grounded, search = [], set(), config.get("gemini_search", True)
+    while len(items) < count:
+        part = min(PER_CALL, count - len(items))
+        done = "".join(f"\n- {headline(i.get('text'))}" for i in items if isinstance(i, dict))
+        prompt = RULES.format(count=part, date=today, recent=(recent_topics(posts, inbox) + done) or "- пока ничего")
+        try:
+            if not search:
+                raise RuntimeError("поиск выключен")
+            got, found = parse_reply(ask_gemini(prompt, models))
+        except RuntimeError as error:
+            # На бесплатном тарифе поиск Google бывает недоступен: тогда без новостей.
+            print(f"С поиском не получилось ({str(error)[:200]}), пишу посты без новостей")
+            search = False
+            try:
+                got, found = parse_reply(ask_gemini(prompt + OFFLINE, models, search=False))
+            except (RuntimeError, ValueError) as error:
+                if not items:
+                    raise
+                print(f"Следующая порция не получилась: {str(error)[:200]}")
+                break
+            got = [item for item in got if isinstance(item, dict) and item.get("kind") != "news"]
+        if not got:
+            break
+        items += got[:part]
+        grounded |= found
     print(f"Gemini предложил {len(items)} постов, источники поиска: {', '.join(sorted(grounded)) or 'нет'}")
     added = []
     stamp = datetime.now(zone).strftime("%Y-%m-%d-%H%M")
