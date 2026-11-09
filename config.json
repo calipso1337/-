@@ -1,0 +1,19 @@
+{
+  "timezone_offset_hours": 3,
+  "slots": ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00",
+            "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00"],
+  "meme_slots": ["12:00", "16:00", "20:00"],
+  "max_news_per_day": 4,
+  "youtube": [
+    {"name": "Brawl Stars", "channel_id": "UCooVYzDxdwTtGYAkcPmOgOw"}
+  ],
+  "supercell_blog": {
+    "url": "https://supercell.com/en/games/brawlstars/blog/",
+    "fallback_image": "images/auto-supercell-news.png"
+  },
+  "reddit": {
+    "subreddit": "Brawlstars",
+    "flairs": ["humor", "meme"],
+    "min_score": 300
+  }
+}

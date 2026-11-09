@@ -51,16 +51,19 @@ def run(tmp_path):
     (tmp_path / "videos" / "a.mp4").write_bytes(b"MP4-test")
     (tmp_path / "bot.py").write_text((ROOT / "bot.py").read_text(encoding="utf-8"), encoding="utf-8")
 
-    def go(posts, state=0, next_at=0, arguments=()):
+    def go(posts, state=0, arguments=("--now",), config=None, inbox=None):
         (tmp_path / "queue.json").write_text(json.dumps(posts), encoding="utf-8")
-        (tmp_path / "state.json").write_text(json.dumps({"next": state, "next_at": next_at}))
+        (tmp_path / "state.json").write_text(json.dumps({"next": state}))
+        (tmp_path / "config.json").write_text(json.dumps(config or {"slots": []}))
+        (tmp_path / "inbox.json").write_text(json.dumps(inbox or []))
         env = {
             **os.environ,
             "TELEGRAM_BOT_TOKEN": "secret-token",
             "TELEGRAM_CHANNEL": "@channel",
             "TELEGRAM_API_BASE": f"http://127.0.0.1:{server.server_port}",
         }
-        env.pop("GITHUB_EVENT_NAME", None)
+        env["SKIP_FETCH"] = "1"
+        env.pop("POST_NOW", None)
         done = subprocess.run(
             [sys.executable, "bot.py", *arguments], cwd=tmp_path, env=env, capture_output=True, text=True
         )
@@ -137,26 +140,65 @@ def test_post_without_source_has_no_footer(run):
     assert json.loads(server.calls[0][2])["text"] == "Привет"
 
 
-def test_waits_until_next_time(run):
+def test_no_slot_means_no_post(run):
     go, server = run
-    done, state = go([{"type": "text", "text": "Привет"}], next_at=int(time.time()) + 3600)
+    done, state = go([{"type": "text", "text": "Привет"}], arguments=())
     assert done.returncode == 0 and state == 0 and server.calls == []
-    assert "не подошло" in done.stdout
+    assert "нет слота" in done.stdout
 
 
-def test_ten_minutes_early_is_allowed(run):
+def slot_config(offset_seconds):
+    """Конфиг с одним слотом, который наступает через offset_seconds."""
+    moment = time.gmtime(time.time() + offset_seconds + 60)
+    return {"timezone_offset_hours": 0, "slots": [time.strftime("%H:%M", moment)]}
+
+
+def test_posts_in_slot_and_remembers_it(run, tmp_path):
     go, server = run
-    _, state = go([{"type": "text", "text": "Привет"}], next_at=int(time.time()) + 300)
-    assert state == 1
+    config = slot_config(-120)
+    done, state = go([{"type": "text", "text": "Привет"}], arguments=(), config=config)
+    assert done.returncode == 0 and state == 1
+    saved = json.loads((tmp_path / "state.json").read_text())
+    assert saved["last_slot"].endswith(config["slots"][0])
 
 
-def test_now_flag_ignores_wait_and_sets_interval(run, tmp_path):
+MSK = {"timezone_offset_hours": 3, "slots": ["09:00", "10:00"], "meme_slots": ["10:00"]}
+NINE = 1794204000  # 2026-11-09 09:00 по Москве
+
+
+@pytest.mark.parametrize(
+    "shift, expected",
+    [(-300, "2026-11-09 09:00"), (-10, "2026-11-09 09:00"), (0, "2026-11-09 09:00"),
+     (19 * 60, "2026-11-09 09:00"), (21 * 60, None), (-7 * 60, None), (3600 - 60, "2026-11-09 10:00")],
+)
+def test_due_slot(shift, expected):
+    slot = bot.due_slot(MSK, {"next": 0}, NINE + shift)
+    assert (slot and slot[1]) == expected
+    if slot:
+        assert slot[0] in (NINE, NINE + 3600)
+
+
+def test_slot_is_used_once():
+    assert bot.due_slot(MSK, {"next": 0, "last_slot": "2026-11-09 09:00"}, NINE + 60) is None
+
+
+def test_choose_order():
+    meme = {"kind": "meme", "id": "m"}
+    news = {"kind": "news", "id": "n"}
+    posts = [{"type": "text", "text": "x"}]
+    state = {"next": 0}
+    assert bot.choose(posts, state, [news, meme], MSK, "10:00", "d", False) == ("meme", meme)
+    assert bot.choose(posts, state, [news, meme], MSK, "09:00", "d", False) == ("news", news)
+    assert bot.choose(posts, {"next": 0, "news_today": {"d": 4}}, [news], MSK, "09:00", "d", False) == ("queue", 0)
+    assert bot.choose(posts, {"next": 1}, [meme], MSK, "09:00", "d", False) == ("meme", meme)
+    assert bot.choose(posts, {"next": 1}, [], MSK, "09:00", "d", False) is None
+
+
+def test_inbox_news_goes_first(run):
     go, server = run
-    before = time.time()
-    _, state = go([{"type": "text", "text": "Привет"}], next_at=int(before) + 9000, arguments=["--now"])
-    assert state == 1
-    wait = json.loads((tmp_path / "state.json").read_text())["next_at"] - before
-    assert 3590 <= wait <= 10810
+    inbox = [{"kind": "news", "id": "v1", "added": int(time.time()), "post": {"type": "text", "text": "Новость"}}]
+    done, state = go([{"type": "text", "text": "Из очереди"}], inbox=inbox)
+    assert state == 0 and json.loads(server.calls[0][2])["text"] == "Новость"
 
 
 def test_fallback_image_after_url_failure(run):

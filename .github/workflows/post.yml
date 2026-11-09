@@ -1,36 +1,48 @@
 name: post
 on:
-  schedule:
-    # Время в UTC: проверка два раза в час с 09:00 до 22:59 по Москве.
-    # Минуты не круглые: запуски на начало часа GitHub часто задерживает или теряет.
-    # Бот сам выбирает случайный интервал между постами: от 1 до 3 часов.
-    - cron: "7,37 6-19 * * *"
-  # Расписание GitHub не срабатывает, поэтому проверку запускает изменение tick.txt.
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/post.yml
-      - tick.txt
+  # Точное время обеспечивает внешний таймер (cron-job.org): он запускает workflow
+  # за минуту до каждого слота, а бот ждёт точную минуту. Подробнее в README.
   workflow_dispatch:
+    inputs:
+      now:
+        description: "Опубликовать следующий пост прямо сейчас"
+        type: boolean
+        default: false
+  # Запасной вариант, если внешний таймер не сработал. GitHub запускает расписание
+  # с опозданием, поэтому пост выйдет, только если опоздание меньше 20 минут.
+  schedule:
+    - cron: "3,13 6-19 * * *"
 
 permissions:
   contents: write
 
 concurrency:
   group: post
+  cancel-in-progress: false
 
 jobs:
   post:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - run: python3 bot.py
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHANNEL: ${{ vars.TELEGRAM_CHANNEL }}
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          POST_NOW: ${{ inputs.now }}
       - name: Запомнить прогресс
+        if: always()
         run: |
           git config user.name "channel-bot"
           git config user.email "channel-bot@users.noreply.github.com"
-          git add state.json
-          git diff --cached --quiet || { git commit -m "Опубликован пост"; git pull --rebase origin main; git push; }
+          for file in state.json inbox.json seen.json; do [ -f "$file" ] && git add "$file"; done
+          git diff --cached --quiet && exit 0
+          git commit -m "Опубликован пост"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main && git push && exit 0
+            sleep 5
+          done
+          exit 1
