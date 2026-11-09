@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parent
 TARGET = 14
 MAX_PER_RUN = 10
 API = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-DEFAULT_MODELS = ["gemini-flash-latest", "gemini-2.5-flash"]
+DEFAULT_MODELS = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-flash-lite-latest"]
 OFFICIAL = {"supercell.com", "brawlstars.com", "youtube.com", "inbox.supercell.com"}
 COVER_KINDS = {"news", "update", "buff", "nerf", "brawler", "poll", "warning", "esports",
                "creator", "record", "fun", "meme"}
@@ -101,13 +101,21 @@ def recent_topics(posts, inbox):
     return "\n".join(f"- {topic}" for topic in topics if topic)
 
 
-def ask_gemini(prompt, models):
+OFFLINE = """
+
+ВАЖНО: поиск сейчас недоступен. Не пиши новости (kind news) совсем: только опросы, советы
+и мемы по общеизвестным механикам игры, без чисел, дат и названий свежих обновлений."""
+
+
+def ask_gemini(prompt, models, search=True):
     key = os.environ.get("GEMINI_API_KEY")
-    body = json.dumps({
+    request_body = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "tools": [{"google_search": {}}],
         "generationConfig": {"temperature": 0.8},
-    }).encode()
+    }
+    if search:
+        request_body["tools"] = [{"google_search": {}}]
+    body = json.dumps(request_body).encode()
     last = None
     for model in models:
         request = urllib.request.Request(
@@ -121,7 +129,7 @@ def ask_gemini(prompt, models):
                 print(f"Ответил {model}")
                 return reply
             except urllib.error.HTTPError as error:
-                detail = error.read().decode("utf-8", "replace")[:300]
+                detail = " ".join(error.read().decode("utf-8", "replace").split())[:700]
                 last = f"{model}: HTTP {error.code} {detail}"
                 if error.code in (429, 500, 503) and attempt < 2:
                     time.sleep(20 * (attempt + 1))
@@ -241,7 +249,13 @@ def main():
     today = datetime.now(zone).date().isoformat()
     inbox = bot.read_json(bot.INBOX, [])
     prompt = RULES.format(count=count, date=today, recent=recent_topics(posts, inbox) or "- пока ничего")
-    items, grounded = parse_reply(ask_gemini(prompt, models))
+    try:
+        items, grounded = parse_reply(ask_gemini(prompt, models))
+    except RuntimeError as error:
+        # На бесплатном тарифе поиск Google бывает недоступен: тогда без новостей.
+        print(f"С поиском не получилось ({error}), пишу посты без новостей")
+        items, grounded = parse_reply(ask_gemini(prompt + OFFLINE, models, search=False))
+        items = [item for item in items if isinstance(item, dict) and item.get("kind") != "news"]
     print(f"Gemini предложил {len(items)} постов, источники поиска: {', '.join(sorted(grounded)) or 'нет'}")
     added = []
     stamp = datetime.now(zone).strftime("%Y-%m-%d-%H%M")
