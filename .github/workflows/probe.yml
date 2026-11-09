@@ -1,0 +1,18 @@
+name: probe
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for u in https://api.brawlify.com/v1/brawlers https://api.brawlify.com/v1/maps; do
+            echo "== $u"; curl -sS -m 30 -A "AllAboutBrawlBot/1.0" "$u" -o out.json -w "HTTP %{http_code} %{size_download}\n"
+            python3 -c "
+          import json;d=json.load(open('out.json'));l=d.get('list',d)
+          print(type(d).__name__, list(d)[:5] if isinstance(d,dict) else '', len(l))
+          x=l[0]; print(json.dumps({k:(v if not isinstance(v,(list,dict)) else type(v).__name__) for k,v in x.items()},ensure_ascii=False)[:1500])
+          print([b.get('name') for b in l[:60]])
+          " || head -c 500 out.json
+          done
+          for u in https://cdn.brawlify.com/brawlers/model/Shelly.png https://cdn.brawlify.com/brawlers/borderless/16000000.png https://cdn.brawlify.com/brawlers/emoji/16000000.png; do
+            curl -sS -m 30 -o /dev/null -w "$u HTTP %{http_code} %{content_type} %{size_download}\n" "$u"; done
