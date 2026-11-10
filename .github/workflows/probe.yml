@@ -1,0 +1,18 @@
+name: probe
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pip install -q yt-dlp && yt-dlp --version
+      - name: Shorts официального канала
+        run: |
+          yt-dlp --flat-playlist --playlist-end 8 --print "%(id)s | %(title)s | %(duration)s" "https://www.youtube.com/@BrawlStars/shorts" 2>&1 | tail -12
+          ID=$(yt-dlp --flat-playlist --playlist-end 1 --print "%(id)s" "https://www.youtube.com/@BrawlStars/shorts" 2>/dev/null | head -1)
+          yt-dlp -f "mp4[height<=720]/best[ext=mp4]/best" --max-filesize 45M -o "short.%(ext)s" "https://www.youtube.com/shorts/$ID" 2>&1 | tail -5; ls -la short.* || true
+      - name: Видео канала
+        run: yt-dlp --flat-playlist --playlist-end 40 --print "%(id)s" "https://www.youtube.com/@BrawlStars/videos" 2>&1 | wc -l
+      - name: Reddit
+        run: |
+          for u in "https://www.reddit.com/r/Brawlstars/top/.rss?t=day" "https://old.reddit.com/r/Brawlstars/top.json?t=day" "https://www.reddit.com/r/Brawlstars/top.json?t=day"; do
+            curl -sS -m 20 -A "Mozilla/5.0 AllAboutBrawlBot/1.0" -o /dev/null -w "$u %{http_code}\n" "$u"; done
