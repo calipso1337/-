@@ -256,6 +256,7 @@ def build(item, grounded, stamp, number):
             return None, f"источник не подтверждён поиском: {source or 'нет'}"
         post.update(source=source, source_name="Supercell" if domain(source) == "supercell.com" else domain(source))
     if kind in ("news", "tip", "poll"):
+        post["cover_kind"] = (item.get("cover") or {}).get("kind") or ("poll" if kind == "poll" else "tip" if kind == "tip" else "news")
         draw(ROOT / f"{name}.png", cover_args(item.get("cover") or {}), everything)
         post.update(type="photo", image=f"{name}.png")
         image = official_image(post.get("source", "")) if kind == "news" else None
@@ -351,19 +352,22 @@ def build_all(items, grounded, config, tag="gemini", posts=(), only_poll=False):
     return added
 
 
-GUESS = [("poll", "poll"), ("баф", "buff"), ("усилен", "buff"), ("нерф", "nerf"), ("ослабл", "nerf"),
+GUESS = [("poll", "poll"), ("совет", "tip"), ("как ", "tip"), ("секрет", "tip"), ("правильн", "tip"),
+         ("контрол", "tip"), ("чтение", "tip"), ("гайд", "tip"), ("стратег", "tip"), ("тактик", "tip"), ("баф", "buff"), ("усилен", "buff"), ("нерф", "nerf"), ("ослабл", "nerf"),
          ("киберспорт", "esports"), ("чемпионат", "esports"), ("финал", "esports"), ("ютуб", "creator"),
          ("креатор", "creator"), ("рекорд", "record"), ("обновлен", "update"), ("патч", "update"),
-         ("совет", "tip"), ("гайд", "tip"), ("как играть", "tip"), ("как забивать", "tip"),
-         ("секрет", "tip"), ("бойц", "brawler"), ("важно", "warning"), ("мошен", "warning")]
+         ("нов", "news"), ("важно", "warning"), ("мошен", "warning")]
 
 
 def guess_kind(post):
-    text = (post.get("type", "") + " " + (post.get("text") or "")).lower()
+    if post.get("cover_kind") in COVER_KINDS:
+        return post["cover_kind"]
+    text = (post.get("type", "") + " " + headline(post.get("text") or "")).lower()
     for word, kind in GUESS:
         if word in text:
             return kind
-    return "news"
+    # Без источника это не новость, а совет или разбор.
+    return "news" if post.get("source") else "tip"
 
 
 def restyle(posts, start):

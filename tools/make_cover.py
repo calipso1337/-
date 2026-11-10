@@ -30,7 +30,12 @@ def face(path, size):
 
 
 def clean(text):
-    return " ".join(NOT_DRAWABLE.sub("", text or "").split())
+    """Без эмодзи и значков: шрифт их не рисует и вместо них были бы квадратики."""
+    import unicodedata
+
+    text = NOT_DRAWABLE.sub("", text or "")
+    text = "".join(c for c in text if unicodedata.category(c) not in ("So", "Sk", "Cf", "Co", "Cs", "Mn", "Me"))
+    return " ".join(text.split())
 
 
 def wrap(draw, text, font, width):
