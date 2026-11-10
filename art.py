@@ -71,7 +71,7 @@ def letterboxed(path):
 PEOPLE_TITLES = re.compile(
     r"(podcast|brawl talk|esports|championship|world finals|finals|interview|q&a|behind the|"
     r"developer|dev diary|live|creator|irl|reaction|ft\.|feat\.|vs\.? pro|tournament|bsc|"
-    r"monthly finals|last chance|qualifier)", re.IGNORECASE)
+    r"monthly finals|last chance|qualifier|time to explain|brawl stars x )", re.IGNORECASE)
 
 
 def channel_video_ids(channel_id, limit):
