@@ -326,8 +326,21 @@ def load_config():
     return read_json(CONFIG, {"slots": [], "timezone_offset_hours": 3})
 
 
+def jitter(config, day, slot):
+    """Случайный, но одинаковый для всех запусков сдвиг слота в минутах (в пределах jitter_minutes)."""
+    import hashlib
+
+    start, end = config.get("jitter_minutes", [0, 0])
+    if end <= start:
+        return start
+    digest = hashlib.sha256(f"{day.isoformat()} {slot}".encode()).hexdigest()
+    return start + int(digest, 16) % (end - start + 1)
+
+
 def slot_times(config, now):
-    """Слоты вчера, сегодня и завтра: [(время в секундах, "ГГГГ-ММ-ДД ЧЧ:ММ", "ЧЧ:ММ")]."""
+    """Слоты вчера, сегодня и завтра: [(время в секундах, "ГГГГ-ММ-ДД ЧЧ:ММ", "ЧЧ:ММ")].
+
+    Время слота сдвинуто на случайные минуты, чтобы посты выходили не ровно в начале часа."""
     zone = timezone(timedelta(hours=config.get("timezone_offset_hours", 3)))
     today = datetime.fromtimestamp(now, zone).date()
     result = []
@@ -336,6 +349,7 @@ def slot_times(config, now):
         for slot in config.get("slots", []):
             hour, minute = map(int, slot.split(":"))
             moment = datetime(day.year, day.month, day.day, hour, minute, tzinfo=zone)
+            moment += timedelta(minutes=jitter(config, day, slot))
             result.append((moment.timestamp(), f"{day.isoformat()} {slot}", slot))
     return sorted(result)
 

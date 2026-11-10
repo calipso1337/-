@@ -269,3 +269,15 @@ def test_sleep_until_slot():
     assert bot.sleep_until_slot(MSK, {"next": 0}, NINE + 60) == 0
     # После последнего слота дня спим не дольше лимита задачи GitHub.
     assert bot.sleep_until_slot(MSK, {"next": 0, "last_slot": "2026-11-09 10:00"}, NINE + 7200) == bot.MAX_SLEEP
+
+
+def test_jitter_is_random_but_stable():
+    config = {**MSK, "jitter_minutes": [7, 52]}
+    times = bot.slot_times(config, NINE)
+    assert times == bot.slot_times(config, NINE + 1800)  # Все запуски цепочки видят одно и то же время.
+    week = [t for day in range(7) for t, _, _ in bot.slot_times(config, NINE + 86400 * day)]
+    minutes = {int((t - NINE) % 3600 // 60) for t in week}
+    assert min(minutes) >= 7 and max(minutes) <= 52 and len(minutes) > 5
+    nine = [t for t, label, _ in times if label == "2026-11-09 09:00"][0]
+    assert bot.due_slot(config, {"next": 0}, nine)[1] == "2026-11-09 09:00"
+    assert bot.due_slot(config, {"next": 0}, NINE - 600) is None  # До сдвинутого времени рано.
