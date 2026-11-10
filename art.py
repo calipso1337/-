@@ -46,8 +46,13 @@ def real_face(path):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     detector = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
     side = min(gray.shape[:2])
-    faces = detector.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(side // 12, side // 12))
-    return len(faces) > 0
+    size = (side // 12, side // 12)
+    if len(detector.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=size)):
+        return True
+    # Лицо вполоборота: детектор профиля, в обе стороны.
+    profile = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_profileface.xml")
+    return any(len(profile.detectMultiScale(img, scaleFactor=1.1, minNeighbors=6, minSize=size))
+               for img in (gray, cv2.flip(gray, 1)))
 
 
 def letterboxed(path):
@@ -60,6 +65,13 @@ def letterboxed(path):
         band = width // 6
         sides = [ImageStat.Stat(gray.crop(box)) for box in ((0, 0, band, height), (width - band, 0, width, height))]
     return all(stat.mean[0] < 25 and stat.stddev[0] < 12 for stat in sides)
+
+
+# Ролики, где почти наверняка живые люди: подкасты, новостные выпуски, киберспорт, интервью.
+PEOPLE_TITLES = re.compile(
+    r"(podcast|brawl talk|esports|championship|world finals|finals|interview|q&a|behind the|"
+    r"developer|dev diary|live|creator|irl|reaction|ft\.|feat\.|vs\.? pro|tournament|bsc|"
+    r"monthly finals|last chance|qualifier)", re.IGNORECASE)
 
 
 def channel_video_ids(channel_id, limit):
@@ -94,7 +106,7 @@ def youtube_art(channel_id, limit):
     for video_id, title in channel_video_ids(channel_id, limit):
         # Кадры примерно с 25, 50 и 75 процентов ролика: моменты из игры без надписей превью.
         for n in (1, 2, 3):
-            items.append({"id": f"yt-{video_id}-{n}", "title": title,
+            items.append({"id": f"yt-{video_id}-{n}", "title": title, "video": video_id,
                           "urls": [f"https://i.ytimg.com/vi/{video_id}/maxres{n}.jpg",
                                    f"https://i.ytimg.com/vi/{video_id}/hq{n}.jpg"]})
     return items
@@ -124,21 +136,39 @@ def collect(config, limit=60):
             found += job()
         except Exception as error:  # noqa: BLE001
             print(f"Фоны ({name}): не удалось получить список: {error}")
-    index = []
+    index, people, faces = [], set(), {}
     for item in found:
         path = CACHE / f"{item['id']}.jpg"
         for url in item["urls"]:
             try:
                 if not path.exists():
                     download(url, path)
-                if letterboxed(path) or real_face(path):
-                    print(f"Фон {item['id']} не подходит: вертикальный кадр или живой человек")
+                video = item.get("video", item["id"])
+                if PEOPLE_TITLES.search(item["title"]):
+                    people.add(video)
                     break
-                index.append({"id": item["id"], "title": item["title"], "path": str(path)})
+                if real_face(path):
+                    # Лица на двух кадрах из трёх: скорее всего, весь ролик с людьми.
+                    faces[video] = faces.get(video, 0) + 1
+                    if faces[video] >= 2:
+                        people.add(video)
+                    break
+                if letterboxed(path):
+                    break
+                index.append({"id": item["id"], "title": item["title"], "path": str(path),
+                              "video": item.get("video", item["id"])})
                 break
             except Exception as error:  # noqa: BLE001
                 print(f"Фон {item['id']}: {type(error).__name__}: {error}")
                 continue
+    index = [entry for entry in index if entry["video"] not in people]
+    titles = {}
+    for item in found:
+        titles.setdefault(item.get("video", item["id"]), item["title"])
+    for video, title in titles.items():
+        mark = "ЛЮДИ" if video in people else sum(1 for e in index if e["video"] == video)
+        print(f"  ролик {video}: {mark} | {title[:70]}")
+    print(f"Роликов с живыми людьми (все их кадры отброшены): {len(people)}")
     INDEX.write_text(json.dumps(index, ensure_ascii=False), encoding="utf-8")
     print(f"Официальных фонов: {len(index)}")
     return index
