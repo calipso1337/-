@@ -82,7 +82,7 @@ def test_local_image_is_uploaded_with_footer(run):
     assert method == "sendPhoto" and kind.startswith("multipart/form-data")
     assert "PNG-test" in text and "<b>Заголовок</b>" in text
     assert "a=1&amp;b=2" in text and 'name="parse_mode"' in text
-    assert "Источник: e.com" in text and "reply_markup" in text and "t.me/share" in text
+    assert "Источник: e.com" in text and "reply_markup" not in text and "t.me/share" not in text
     assert "неофициальный" not in text
 
 
@@ -131,7 +131,7 @@ def test_source_name_and_button_in_text_post(run):
     go([{"type": "text", "text": "Привет", "source": "https://e.com/a", "source_name": "Supercell"}])
     payload = json.loads(server.calls[0][2])
     assert payload["text"].endswith('<a href="https://e.com/a">Источник: Supercell</a>')
-    assert payload["reply_markup"] == bot.SHARE_BUTTON
+    assert "reply_markup" not in payload
 
 
 def test_post_without_source_has_no_footer(run):

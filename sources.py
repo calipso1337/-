@@ -166,17 +166,25 @@ def fetch_reddit(subreddit):
     return json.loads(raw)
 
 
+def reddit_video(post):
+    """Адрес видео из ответа API Reddit (HLS со звуком) или None."""
+    video = ((post.get("secure_media") or post.get("media") or {}).get("reddit_video") or {})
+    if not post.get("is_video") or video.get("duration", 999) > 90:
+        return None
+    return video.get("hls_url") or video.get("fallback_url")
+
+
 def good_meme(post, config):
     flair = (post.get("link_flair_text") or "").lower()
     url = post.get("url", "")
-    return (
+    media = reddit_video(post) or (re.match(r"https://i\.redd\.it/[\w-]+\.(jpe?g|png)$", url) and url)
+    return bool(
         not post.get("over_18")
         and not post.get("spoiler")
         and not post.get("stickied")
-        and not post.get("is_video")
         and post.get("score", 0) >= config.get("min_score", 300)
         and any(word in flair for word in config.get("flairs", ["humor", "meme"]))
-        and re.match(r"https://i\.redd\.it/[\w-]+\.(jpe?g|png)$", url)
+        and media
         and not BAD_WORDS.search(post.get("title", ""))
     )
 
@@ -184,7 +192,8 @@ def good_meme(post, config):
 def parse_reddit(listing, config):
     posts = [child["data"] for child in listing.get("data", {}).get("children", [])]
     posts = [post for post in posts if good_meme(post, config)]
-    return sorted(posts, key=lambda post: -post.get("score", 0))
+    # Видео-мемы в приоритете, внутри группы по рейтингу.
+    return sorted(posts, key=lambda post: (not reddit_video(post), -post.get("score", 0)))
 
 
 def meme_post(post):
@@ -196,9 +205,10 @@ def meme_post(post):
         "Узнал себя? Ставь 😂\n\n"
         "#BrawlStars #мем"
     )
+    video = reddit_video(post)
+    media = {"type": "video", "video": video} if video else {"type": "photo", "image": post["url"]}
     return {
-        "type": "photo",
-        "image": post["url"],
+        **media,
         "text": text,
         "source": "https://www.reddit.com" + post["permalink"],
         "source_name": f"Reddit r/{post.get('subreddit', 'Brawlstars')}",
@@ -255,9 +265,54 @@ def fetch_blog(config, inbox, seen, now):
             remember(seen, "blog", link)
 
 
+def shorts_list(channel_id, limit=30):
+    """Shorts официального канала: [(id, название)]. Только список, без скачивания."""
+    import subprocess
+
+    done = subprocess.run(
+        ["yt-dlp", "--flat-playlist", "--playlist-end", str(limit), "--print", "%(id)s\t%(title)s",
+         f"https://www.youtube.com/channel/{channel_id}/shorts"],
+        capture_output=True, text=True, timeout=120,
+    )
+    return [line.split("\t", 1) for line in done.stdout.splitlines() if "\t" in line]
+
+
+def short_post(video_id, title, channel_name):
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    text = (
+        "<b>😂 МОМЕНТ ДНЯ</b>\n"
+        f"<i>{clean(title, 200)}</i>\n\n"
+        "▶️ Смотри прямо здесь, плеер над постом\n\n"
+        "Ставь 😂 если зашло\n\n"
+        "#BrawlStars #мем"
+    )
+    return {"type": "text", "text": text, "video_url": url, "source": url, "source_name": f"YouTube: {channel_name}"}
+
+
+def fetch_shorts(config, inbox, seen, now):
+    """Запасной источник видео-мемов: Shorts официального канала Brawl Stars."""
+    stock = sum(1 for item in inbox if item["kind"] == "meme")
+    if stock or not config.get("youtube"):
+        return  # Есть мемы с Reddit: Shorts не нужны.
+    channel = config["youtube"][0]
+    key = f"shorts:{channel['channel_id']}"
+    for video_id, title in shorts_list(channel["channel_id"]):
+        if stock >= 3:
+            break
+        if video_id in seen.get(key, []) or BAD_WORDS.search(title):
+            continue
+        remember(seen, key, video_id)
+        add(inbox, "meme", video_id, short_post(video_id, title, channel["name"]), now)
+        stock += 1
+        print(f"Shorts: {title}")
+
+
 def fetch_memes(config, inbox, seen, now):
     reddit = config.get("reddit")
     if not reddit:
+        return
+    if not (os.environ.get("REDDIT_CLIENT_ID") and os.environ.get("REDDIT_CLIENT_SECRET")):
+        print("Reddit: нет ключей API (REDDIT_CLIENT_ID и REDDIT_CLIENT_SECRET), беру Shorts")
         return
     stock = sum(1 for item in inbox if item["kind"] == "meme")
     for post in parse_reddit(fetch_reddit(reddit["subreddit"]), reddit):
@@ -278,7 +333,8 @@ def expire(inbox, now):
 
 def fetch_all(config, inbox, seen, now, validate):
     """Пополняет inbox. Ошибка одного источника не мешает остальным и публикации."""
-    for name, fetch in (("YouTube", fetch_youtube), ("Блог Supercell", fetch_blog), ("Reddit", fetch_memes)):
+    for name, fetch in (("YouTube", fetch_youtube), ("Блог Supercell", fetch_blog), ("Reddit", fetch_memes),
+                        ("Shorts", fetch_shorts)):
         before = len(inbox)
         try:
             fetch(config, inbox, seen, now)
@@ -311,6 +367,10 @@ def latest(kind, config):
             if post:
                 return "blog", link, post
         raise ValueError("в блоге Supercell не нашлось статей")
+    if kind == "meme" and not os.environ.get("REDDIT_CLIENT_ID"):
+        channel = config["youtube"][0]
+        video_id, title = shorts_list(channel["channel_id"], 1)[0]
+        return f"shorts:{channel['channel_id']}", video_id, short_post(video_id, title, channel["name"])
     if kind == "meme":
         memes = parse_reddit(fetch_reddit(config["reddit"]["subreddit"]), config["reddit"])
         if not memes:

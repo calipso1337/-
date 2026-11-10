@@ -88,3 +88,26 @@ def test_banned_filter_blocks(text):
 @pytest.mark.parametrize("text", ["Сливайся с кустами", "Делай ставку на контроль", "Чекай кусты"])
 def test_banned_filter_game_slang(text):
     assert not writer.BANNED.search(text)
+
+
+TEXT = "<b>💡 КАК ИГРАТЬ</b>\n<i>Подводка.</i>\n\n<blockquote>Факт</blockquote>\n\n🏆 <b>Вердикт:</b> <i>мнение.</i>\n\n💬 Вопрос?\n\n#BrawlStars"
+
+
+def test_strip_verdict():
+    text = writer.strip_verdict(TEXT)
+    assert "Вердикт" not in text and "\n\n\n" not in text
+    assert text.endswith("💬 Вопрос?\n\n#BrawlStars") and "<blockquote>Факт</blockquote>\n\n💬" in text
+
+
+def test_verdict_only_for_balance():
+    assert writer.is_balance({"text": "<b>⚖️ БАЛАНС: УСИЛЕНИЯ</b>"})
+    assert writer.is_balance({"text": "<b>x</b>"}, "nerf")
+    assert not writer.is_balance({"text": "<b>КАКОЙ БАФФИ ВЫБРАТЬ</b>"})
+    assert not writer.is_balance({"text": "<b>КАК ЗАБИВАТЬ В БРОУЛБОЛЕ</b>"})
+
+
+def test_polls_are_rare():
+    posts = [{"type": "photo"}] * 12
+    assert writer.poll_allowed(posts)
+    assert not writer.poll_allowed(posts + [{"type": "poll"}] + [{"type": "photo"}] * 9)
+    assert writer.poll_allowed(posts + [{"type": "poll"}] + [{"type": "photo"}] * 10)

@@ -35,8 +35,6 @@ SEEN = ROOT / "seen.json"
 API_BASE = os.environ.get("TELEGRAM_API_BASE", "https://api.telegram.org")
 LIMITS = {"text": 4096, "photo": 1024, "video": 1024}
 VIDEO_SIZE = {"width": 1280, "height": 720, "duration": 6}
-SHARE_URL = "https://t.me/share/url?url=https://t.me/All_About_Brawl"
-SHARE_BUTTON = {"inline_keyboard": [[{"text": "📤 Поделиться каналом", "url": SHARE_URL}]]}
 EARLY = 6 * 60  # Запуск чуть раньше слота: бот всё подготовит и дождётся точной минуты.
 LATE = 20 * 60  # Если запуск опоздал больше чем на 20 минут, слот пропускается.
 WAKE = 4 * 60  # Цепочка запусков просыпается за 4 минуты до слота.
@@ -159,10 +157,28 @@ def download(url):
     return data
 
 
+def download_video(url):
+    """Скачивает видео (mp4 или HLS со звуком) через ffmpeg, не больше 50 МБ и 2 минут."""
+    import subprocess
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as folder:
+        out = Path(folder) / "video.mp4"
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", url, "-t", "120", "-c", "copy",
+                        "-movflags", "+faststart", str(out)], check=True, timeout=300)
+        data = out.read_bytes()
+    if len(data) > 50_000_000:
+        raise RuntimeError("видео больше 50 МБ")
+    return data
+
+
 def send_photo(token, channel, image, caption, keyboard=None, upload=False):
     fields = {"chat_id": channel, "caption": caption, "parse_mode": "HTML"}
     if is_url(image) and not upload:
-        return call(token, "sendPhoto", {**fields, "photo": image, "reply_markup": keyboard})
+        payload = {**fields, "photo": image}
+        if keyboard:
+            payload["reply_markup"] = keyboard
+        return call(token, "sendPhoto", payload)
     if keyboard:
         fields["reply_markup"] = json.dumps(keyboard)
     if is_url(image):
@@ -206,21 +222,25 @@ def publish(token, channel, post):
                 "text": full_text(post),
                 "parse_mode": "HTML",
                 "link_preview_options": link_preview(post),
-                "reply_markup": SHARE_BUTTON,
             },
         )
     elif kind == "photo":
-        send_post_photo(token, channel, post, SHARE_BUTTON)
+        send_post_photo(token, channel, post)
     elif kind == "video":
         fields = {
             "chat_id": channel,
             "caption": full_text(post),
             "parse_mode": "HTML",
             "supports_streaming": "true",
-            "reply_markup": json.dumps(SHARE_BUTTON),
             **VIDEO_SIZE,
         }
-        send_file(token, "sendVideo", fields, "video", ROOT / post["video"])
+        if is_url(post["video"]):
+            # Видео-мем с площадки: скачиваем по адресу из API и загружаем файлом.
+            for key in VIDEO_SIZE:
+                fields.pop(key)
+            send_file(token, "sendVideo", fields, "video", Path("meme.mp4"), download_video(post["video"]))
+        else:
+            send_file(token, "sendVideo", fields, "video", ROOT / post["video"])
     elif kind == "poll":
         # В опрос нельзя вложить картинку, поэтому она выходит сообщением перед ним.
         if post.get("image"):
@@ -232,7 +252,6 @@ def publish(token, channel, post):
                 "chat_id": channel,
                 "question": post["question"],
                 "options": [{"text": option} for option in post["options"]],
-                "reply_markup": SHARE_BUTTON,
             },
         )
     else:
@@ -265,7 +284,10 @@ def validate_post(post):
                 errors.append(f"файл {image} не найден")
             elif path.stat().st_size > 10_000_000:
                 errors.append(f"файл {image} больше 10 МБ")
-    if kind == "video":
+    if kind == "video" and is_url(post.get("video", "")):
+        if not post["video"].startswith("https://"):
+            errors.append("видео по ссылке только через https")
+    elif kind == "video":
         video = (ROOT / post.get("video", "")).resolve()
         if ROOT not in video.parents or video.suffix != ".mp4" or not video.is_file():
             errors.append(f"видео {post.get('video')} не найдено")

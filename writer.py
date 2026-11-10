@@ -50,9 +50,10 @@ RULES = """Ты редактор русскоязычного Telegram-кана�
 новости игры за последние 7 дней: официальный блог Supercell (supercell.com/en/games/brawlstars/blog),
 обновления, баланс, новые бойцы, события, киберспорт, официальный YouTube Brawl Stars.
 Каждый факт, число и дату бери только из найденных страниц. Не выдумывай новости. Если свежих
-новостей мало, делай опросы, советы и мемы по уже известным фактам игры.
+новостей мало, делай советы, разборы механик и мемы по уже известным фактам игры.
 
-Сделай смесь: новости и разборы, 2-3 опроса, 1-2 мема, советы. Не повторяй эти темы, они уже были:
+Сделай смесь: новости, разборы механик и советы. Мемы не делай: их бот берёт с площадок. {poll_rule}
+Не повторяй эти темы, они уже были:
 {recent}
 
 Формат текста поста (HTML Telegram, только теги b, i, blockquote, a). Каждый факт в своей
@@ -65,13 +66,14 @@ RULES = """Ты редактор русскоязычного Telegram-кана�
 <blockquote><b>🎯 Подзаголовок</b>
 Факт или совет в 1-2 предложения.</blockquote>
 
-🏆 <b>Вердикт:</b> <i>мнение редакции в одном предложении.</i>
-
 💬 Вопрос читателям? Ставь 🔥 или 🗿
 
 #BrawlStars #тема
 
 Эмодзи подбирай по смыслу и не повторяй одни и те же во всех постах.
+Только в постах об обновлениях и изменениях баланса (усиления, ослабления, патч) перед вопросом
+добавь строку: 🏆 <b>Вердикт:</b> <i>мнение редакции в одном предложении.</i> В остальных постах
+слова «Вердикт» быть не должно.
 Для советов, опросов и мемов поле stat оставляй пустым: не придумывай проценты и числа.
 Правила: текст не длиннее 800 символов; символы & и < пиши как &amp; и &lt;; не добавляй
 ссылку на источник в текст (её добавит бот); не заканчивай обещаниями вроде «оставайся на связи».
@@ -87,9 +89,7 @@ RULES = """Ты редактор русскоязычного Telegram-кана�
 {{"kind": "tip", "text": "...", "cover": {{...как выше, kind tip, fun или brawler...}}}}
 {{"kind": "poll", "text": "короткий пост перед опросом", "question": "до 250 символов",
   "options": ["2-6 вариантов до 90 символов"], "cover": {{"kind": "poll", "title": "...", "subtitle": "..."}}}}
-{{"kind": "meme", "text": "короткая подпись к мему в формате выше, без blockquote",
-  "top": "верхняя надпись мема до 60 символов", "bottom": "нижняя надпись до 60 символов"}}
-Мемы только про игровые ситуации, не про реальных людей."""
+"""
 
 
 def unpublished():
@@ -100,6 +100,25 @@ def unpublished():
 def headline(text):
     match = re.search(r"<b>(.*?)</b>", text or "")
     return re.sub(r"<[^>]+>", "", match.group(1) if match else (text or "")[:80]).strip()
+
+
+VERDICT = re.compile(r"\n*[^\n]*Вердикт[^\n]*\n?")
+BALANCE = re.compile(r"(баланс|усилен|ослабл|нерф|патч|обновлен|изменени|\bбафф?(ы|ов)?\b|\bбафнул\w*)", re.IGNORECASE)
+POLL_EVERY = 10  # Опрос не чаще одного на столько постов.
+
+
+def is_balance(post, cover_kind=""):
+    return cover_kind in ("update", "buff", "nerf") or bool(BALANCE.search(headline(post.get("text"))))
+
+
+def strip_verdict(text):
+    """Убирает строку с вердиктом и лишние пустые строки на её месте."""
+    text = VERDICT.sub("\n\n", text)
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
+
+
+def poll_allowed(posts):
+    return not any(post.get("type") == "poll" for post in posts[-POLL_EVERY:])
 
 
 def recent_topics(posts, inbox):
@@ -206,7 +225,9 @@ def save_backgrounds():
 
 def draw(path, args, topic=""):
     background = art.pick(topic, BACKGROUNDS["index"], BACKGROUNDS["used"])
-    extra = ["--bg", background] if background else []
+    import random
+
+    extra = ["--bg", background, "--focus", f"{random.uniform(0.1, 0.9):.2f}"] if background else []
     subprocess.run([sys.executable, str(ROOT / "tools" / "make_cover.py"), str(path), *args, *extra],
                    check=True, capture_output=True, text=True)
 
@@ -269,7 +290,12 @@ def generate(count, posts, inbox, config, only=None):
     while len(items) < count:
         part = min(PER_CALL, count - len(items))
         done = "".join(f"\n- {headline(i.get('text'))}" for i in items if isinstance(i, dict))
-        prompt = RULES.format(count=part, date=today, recent=(recent_topics(posts, inbox) + done) or "- пока ничего")
+        poll_rule = ("Можно сделать один опрос, если тема правда интересная." if poll_allowed(posts) and not any(
+            isinstance(i, dict) and i.get("kind") == "poll" for i in items) else "Опросов не делай.")
+        if only == "poll":
+            poll_rule = "Сделай опрос."
+        prompt = RULES.format(count=part, date=today, poll_rule=poll_rule,
+                              recent=(recent_topics(posts, inbox) + done) or "- пока ничего")
         if only:
             prompt += f"\n\nСделай ровно {part} пост(а) вида kind={only}, другие виды не нужны."
         try:
@@ -298,13 +324,24 @@ def generate(count, posts, inbox, config, only=None):
     return items, grounded
 
 
-def build_all(items, grounded, config, tag="gemini"):
+def build_all(items, grounded, config, tag="gemini", posts=(), only_poll=False):
     zone = timezone(timedelta(hours=config.get("timezone_offset_hours", 3)))
     stamp = datetime.now(zone).strftime("%Y-%m-%d-%H%M") + ("" if tag == "gemini" else f"-{tag}")
     added = []
+    polls_ok = poll_allowed(posts) or only_poll
     for number, item in enumerate(items, 1):
         if not isinstance(item, dict):
             continue
+        if item.get("kind") == "meme":
+            print(f"- пропущен (мемы бот берёт с площадок): {headline(item.get('text'))}")
+            continue
+        if item.get("kind") == "poll":
+            if not polls_ok:
+                print(f"- пропущен (опросы не чаще одного на {POLL_EVERY} постов): {headline(item.get('text'))}")
+                continue
+            polls_ok = False
+        if not is_balance(item, (item.get("cover") or {}).get("kind", "")):
+            item["text"] = strip_verdict(item.get("text") or "")
         post, reason = build(item, grounded, stamp, number)
         if post:
             added.append(post)
@@ -375,7 +412,7 @@ def main():
     inbox = bot.read_json(bot.INBOX, [])
     prepare_backgrounds(config)
     items, grounded = generate(count, posts, inbox, config, only)
-    added = build_all(items[:count], grounded, config, "test" if only else "gemini")
+    added = build_all(items[:count], grounded, config, "test" if only else "gemini", posts, only == "poll")
     save_backgrounds()
     if only:
         if not added:

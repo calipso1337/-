@@ -12,7 +12,7 @@ on:
       test:
         description: "Пробный пост из источника прямо сейчас"
         type: choice
-        options: [none, meme, news, video, gemini_tip, gemini_poll, gemini_meme]
+        options: [none, meme, news, video, gemini_tip, gemini_poll]
         default: none
 
 permissions:
@@ -38,6 +38,8 @@ jobs:
         run: python3 bot.py --sleep
       - name: Взять свежую очередь
         run: git pull --ff-only origin main
+      - name: Установить yt-dlp (список Shorts и роликов, без скачивания)
+        run: pip install -q yt-dlp
       - name: Опубликовать
         run: |
           if [[ "${{ inputs.test }}" == gemini_* ]]; then

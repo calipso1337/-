@@ -55,8 +55,17 @@ def fit(draw, text, path, width, max_lines, largest, smallest):
     return font, wrap(draw, text, font, width)[:max_lines], int(smallest * 1.12 * S)
 
 
+FOCUS = [0.5]  # Сдвиг кадрирования по горизонтали: одна и та же картинка выглядит по-разному.
+
+
 def cover_crop(image, width, height):
-    return ImageOps.fit(image.convert("RGB"), (width, height), Image.LANCZOS, centering=(0.5, 0.4))
+    """Кадрирование с лёгким приближением, чтобы при сдвиге было что двигать."""
+    image = image.convert("RGB")
+    zoom = 1.18
+    big = ImageOps.fit(image, (int(width * zoom), int(height * zoom)), Image.LANCZOS, centering=(0.5, 0.4))
+    left = int((big.width - width) * FOCUS[0])
+    top = int((big.height - height) * 0.4)
+    return big.crop((left, top, left + width, top + height))
 
 
 def art_background(path, width, height, accent):
@@ -197,7 +206,9 @@ def main():
     parser.add_argument("--stat", default="")
     parser.add_argument("--stat-label", default="")
     parser.add_argument("--meme", nargs=2, metavar=("TOP", "BOTTOM"))
+    parser.add_argument("--focus", type=float, default=0.5, help="0 левый край кадра, 1 правый")
     args = parser.parse_args()
+    FOCUS[0] = min(max(args.focus, 0.0), 1.0)
     if args.meme:
         meme(args.output, *args.meme, bg=args.bg)
     else:

@@ -1,6 +1,8 @@
 """Проверки автоматических источников на образцах данных, без сети."""
 import json
 import sys
+
+import pytest
 import time
 from pathlib import Path
 
@@ -95,6 +97,15 @@ def test_meme_filter():
     assert bot.validate_post(post) == [] and "u/brawler42" in post["text"]
 
 
+@pytest.fixture(autouse=True)
+def reddit_keys(monkeypatch):
+    """По умолчанию ключи Reddit есть, а токен и Shorts подменены."""
+    monkeypatch.setenv("REDDIT_CLIENT_ID", "id")
+    monkeypatch.setenv("REDDIT_CLIENT_SECRET", "secret")
+    monkeypatch.setattr(sources, "reddit_token", lambda: None)
+    monkeypatch.setattr(sources, "shorts_list", lambda channel_id, limit=30: [])
+
+
 def test_first_run_only_remembers(monkeypatch):
     monkeypatch.setattr(sources, "get", fake_get({"youtube": RSS, "/blog/news/frog": ARTICLE, "/blog/": BLOG,
                                                   "reddit": json.dumps({"data": {"children": [reddit_item()]}}).encode()}))
@@ -142,3 +153,29 @@ def test_latest_for_test_posts(monkeypatch):
     assert sources.latest("video", CONFIG)[1] == "new1"
     assert sources.latest("news", CONFIG)[2]["image"] == "https://cdn.supercell.com/frog.jpg"
     assert sources.latest("meme", CONFIG)[2]["image"] == "https://i.redd.it/abc.png"
+
+
+def video_item(**extra):
+    data = {"id": "v1", "is_video": True, "url": "https://v.redd.it/xyz",
+            "secure_media": {"reddit_video": {"hls_url": "https://v.redd.it/xyz/HLSPlaylist.m3u8", "duration": 30}}}
+    return reddit_item(**{**data, **extra})
+
+
+def test_video_memes_first_and_valid():
+    listing = {"data": {"children": [reddit_item(score=5000), video_item(),
+                                     video_item(id="long", secure_media={"reddit_video": {"hls_url": "https://v", "duration": 300}})]}}
+    memes = sources.parse_reddit(listing, CONFIG["reddit"])
+    assert [m["id"] for m in memes] == ["v1", "r1"]
+    post = sources.meme_post(memes[0])
+    assert post["type"] == "video" and post["video"].endswith(".m3u8") and bot.validate_post(post) == []
+
+
+def test_without_reddit_keys_shorts_are_used(monkeypatch):
+    monkeypatch.delenv("REDDIT_CLIENT_ID")
+    monkeypatch.setattr(sources, "shorts_list", lambda channel_id, limit=30: [["s1", "Funny moment"], ["s2", "Free gems hack"]])
+    monkeypatch.setattr(sources, "get", fake_get({"youtube": OSError("x"), "/blog/": OSError("x")}))
+    inbox, seen = [], {}
+    sources.fetch_all(CONFIG, inbox, seen, NOW, bot.validate_post)
+    assert [item["id"] for item in inbox] == ["s1"]
+    assert inbox[0]["post"]["video_url"] == "https://www.youtube.com/watch?v=s1"
+    assert sources.latest("meme", CONFIG)[1] == "s1"

@@ -62,21 +62,41 @@ def letterboxed(path):
     return all(stat.mean[0] < 25 and stat.stddev[0] < 12 for stat in sides)
 
 
-def youtube_art(channel_id, limit):
+def channel_video_ids(channel_id, limit):
+    """До limit обычных роликов канала (без Shorts). Список берём через yt-dlp, без скачивания
+    видео; если его нет, из RSS (там только 15 последних)."""
+    import subprocess
+
+    try:
+        done = subprocess.run(
+            ["yt-dlp", "--flat-playlist", "--playlist-end", str(limit), "--print", "%(id)s\t%(title)s",
+             f"https://www.youtube.com/channel/{channel_id}/videos"],
+            capture_output=True, text=True, timeout=120,
+        )
+        rows = [line.split("\t", 1) for line in done.stdout.splitlines() if "\t" in line]
+        if rows:
+            return rows
+        print(f"yt-dlp не вернул список роликов: {done.stderr.strip()[-200:]}")
+    except (OSError, subprocess.TimeoutExpired) as error:
+        print(f"yt-dlp недоступен ({error}), беру ролики из RSS")
     xml = sources.get(f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}")
-    items = []
-    for entry in ET.fromstring(xml).findall("a:entry", MEDIA)[:limit]:
-        video_id = entry.findtext("yt:videoId", "", MEDIA)
-        title = entry.findtext("a:title", "", MEDIA)
+    rows = []
+    for entry in ET.fromstring(xml).findall("a:entry", MEDIA):
         link = entry.find("a:link", MEDIA)
         if link is not None and "/shorts/" in link.get("href", ""):
             continue  # В Shorts часто живые люди и вертикальный кадр.
-        if video_id:
-            # Кадры примерно с 25, 50 и 75 процентов ролика: моменты из игры без надписей превью.
-            for n in (1, 2, 3):
-                items.append({"id": f"yt-{video_id}-{n}", "title": title,
-                              "urls": [f"https://i.ytimg.com/vi/{video_id}/maxres{n}.jpg",
-                                       f"https://i.ytimg.com/vi/{video_id}/hq{n}.jpg"]})
+        rows.append([entry.findtext("yt:videoId", "", MEDIA), entry.findtext("a:title", "", MEDIA)])
+    return rows
+
+
+def youtube_art(channel_id, limit):
+    items = []
+    for video_id, title in channel_video_ids(channel_id, limit):
+        # Кадры примерно с 25, 50 и 75 процентов ролика: моменты из игры без надписей превью.
+        for n in (1, 2, 3):
+            items.append({"id": f"yt-{video_id}-{n}", "title": title,
+                          "urls": [f"https://i.ytimg.com/vi/{video_id}/maxres{n}.jpg",
+                                   f"https://i.ytimg.com/vi/{video_id}/hq{n}.jpg"]})
     return items
 
 
@@ -91,7 +111,7 @@ def blog_art(blog_url, limit):
     return items
 
 
-def collect(config, limit=15):
+def collect(config, limit=60):
     """Скачивает фоны. Ошибка одного источника не мешает остальным."""
     CACHE.mkdir(exist_ok=True)
     found = []
@@ -128,15 +148,20 @@ def load():
     return json.loads(INDEX.read_text(encoding="utf-8")) if INDEX.exists() else []
 
 
+RECENT = 60  # Фон не повторяется, пока не пройдут столько других обложек.
+
+
 def pick(text, index, used):
     """Путь к фону для поста или None. used: список id, обновляется."""
+    import random
+
     if not index:
         return None
+    recent = set(used[-min(RECENT, max(len(index) - 1, 0)):])
+    fresh = [item for item in index if item["id"] not in recent] or index
     topic = words(text)
     counts = {item["id"]: used.count(item["id"]) for item in index}
-    recent = used[-3:]
-    best = max(index, key=lambda item: (len(topic & words(item["title"])) if item["id"] not in recent else -1,
-                                        -counts[item["id"]]))
+    best = max(fresh, key=lambda item: (len(topic & words(item["title"])), -counts[item["id"]], random.random()))
     used.append(best["id"])
-    del used[:-200]
+    del used[:-300]
     return best["path"]
