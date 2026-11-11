@@ -77,7 +77,8 @@ def test_parse_youtube():
 def test_youtube_post_is_valid():
     post = sources.youtube_post(sources.parse_youtube(RSS)[0], CONFIG["video_channels"][0])
     assert bot.validate_post(post) == []
-    assert "Громожабы &amp; новый сезон" in post["text"] and post["video_url"] == post["source"]
+    assert "Громожабы &amp; новый сезон" in post["text"] and post["type"] == "photo"
+    assert post["image"] == "https://i.ytimg.com/vi/new1/maxresdefault.jpg" and "Смотреть видео" in post["text"]
     assert 'Автор: <a href="https://www.youtube.com/channel/UC1">Ютубер</a>' in post["text"]
 
 
@@ -189,5 +190,6 @@ def test_without_reddit_keys_shorts_are_used(monkeypatch):
     inbox, seen = [], {}
     sources.fetch_all(CONFIG, inbox, seen, NOW, bot.validate_post)
     assert [item["id"] for item in inbox] == ["s1"]
-    assert inbox[0]["post"]["video_url"] == "https://www.youtube.com/watch?v=s1"
+    assert inbox[0]["post"]["source"] == "https://www.youtube.com/shorts/s1"
+    assert inbox[0]["post"]["image"] == "https://i.ytimg.com/vi/s1/hqdefault.jpg"
     assert sources.latest("meme", CONFIG)[1] == "s1"

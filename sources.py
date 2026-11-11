@@ -85,22 +85,29 @@ def author_line(channel):
     return f'👤 Автор: <a href="{url}">{html.escape(channel["name"], quote=False)}</a>'
 
 
+FALLBACK_COVER = "images/auto-supercell-news.png"
+
+
+def video_card(video_id, short, text, url, channel):
+    """Пост с обложкой ролика и ссылкой: превью YouTube Telegram показывает ненадёжно,
+    а скачивать чужие видео нельзя, поэтому картинка + «Смотреть видео»."""
+    # У Shorts нет maxresdefault, у обычных роликов он почти всегда есть.
+    image = f"https://i.ytimg.com/vi/{video_id}/{'hqdefault' if short else 'maxresdefault'}.jpg"
+    return {"type": "photo", "image": image, "fallback_image": FALLBACK_COVER, "text": text,
+            "source": url, "source_name": f"YouTube: {channel['name']}"}
+
+
 def youtube_post(video, channel):
+    url = html.escape(video["url"], quote=True)
     text = (
         "<b>🎬 НОВОЕ ВИДЕО</b>\n"
         f"<i>{clean(video['title'], 200)}</i>\n\n"
         f"{author_line(channel)}\n"
-        "▶️ Плеер прямо над постом, смотри не выходя из Telegram\n\n"
+        f'▶️ <a href="{url}">Смотреть видео</a>\n\n'
         "🔥 уже посмотрел · 👀 смотрю сейчас\n\n"
         "#BrawlStars #видео"
     )
-    return {
-        "type": "text",
-        "text": text,
-        "video_url": video["url"],
-        "source": video["url"],
-        "source_name": f"YouTube: {channel['name']}",
-    }
+    return video_card(video["id"], video.get("short"), text, video["url"], channel)
 
 
 def good_video(video):
@@ -303,16 +310,16 @@ def shorts_list(channel_id, limit=30):
 
 
 def short_post(video_id, title, channel):
-    url = f"https://www.youtube.com/watch?v={video_id}"
+    url = f"https://www.youtube.com/shorts/{video_id}"
     text = (
         "<b>😂 МЕМ ДНЯ</b>\n"
         f"<i>{clean(title, 200)}</i>\n\n"
         f"{author_line(channel)}\n"
-        "▶️ Смотри прямо здесь, плеер над постом\n\n"
+        f'▶️ <a href="{url}">Смотреть видео</a>\n\n'
         "Ставь 😂 если зашло\n\n"
         "#BrawlStars #мем"
     )
-    return {"type": "text", "text": text, "video_url": url, "source": url, "source_name": f"YouTube: {channel['name']}"}
+    return video_card(video_id, True, text, url, channel)
 
 
 def meme_candidates(config, seen, per_channel=10):
