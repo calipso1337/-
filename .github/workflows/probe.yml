@@ -1,0 +1,22 @@
+name: probe
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pip install -q yt-dlp
+      - name: Русские ролики по Brawl Stars
+        run: |
+          for q in "бравл старс" "brawl stars обновление" "бравл старс гайд" "бравл старс новости"; do
+            yt-dlp --flat-playlist --print "%(channel_id)s | %(channel)s | %(duration)s | %(view_count)s | %(title)s" "ytsearch40:$q" 2>/dev/null
+          done > videos.txt
+          python3 - <<'PY'
+          import collections,re
+          rows=[l.split(' | ',4) for l in open('videos.txt') if l.count(' | ')>=4]
+          ru=[r for r in rows if re.search('[а-яА-ЯёЁ]', r[4])]
+          c=collections.Counter((r[0],r[1]) for r in ru)
+          for (cid,name),n in c.most_common(25): print(n, cid, name)
+          PY
+      - name: Мемы Shorts на русском
+        run: |
+          yt-dlp --flat-playlist --print "%(channel_id)s | %(channel)s | %(duration)s | %(title)s" "ytsearch30:бравл старс мемы shorts" 2>/dev/null | head -30
