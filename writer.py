@@ -10,6 +10,7 @@ python3 writer.py --restyle  перерисовать обложки неопу�
 Gemini сам ищет новости и пишет тексты. Скрипт проверяет каждый пост, рисует обложки
 и отбрасывает всё, что нарушает правила канала.
 """
+import html
 import json
 import os
 import re
@@ -46,15 +47,20 @@ BANNED = re.compile(
 RULES = """Ты редактор русскоязычного Telegram-канала «Brawl Stars Новости» (t.me/All_About_Brawl).
 Читатели: школьники и студенты, среди них дети.
 
-Задача: напиши {count} новых постов о Brawl Stars на {date}. Сначала поищи в Google свежие
-новости игры за последние 7 дней: официальный блог Supercell (supercell.com/en/games/brawlstars/blog),
-обновления, баланс, новые бойцы, события, киберспорт, официальный YouTube Brawl Stars.
-Каждый факт, число и дату бери только из найденных страниц. Не выдумывай новости. Если свежих
-новостей мало, делай советы, разборы механик и мемы по уже известным фактам игры.
+Задача: напиши {count} новых постов о Brawl Stars на {date}. Нужен именно такой набор: {plan}.
 
-Сделай смесь: новости, разборы механик и советы. Мемы не делай: их бот берёт с площадок. {poll_rule}
-Не повторяй эти темы, они уже были:
+Виды постов:
+- news: новость по одной из СВЕЖИХ ОФИЦИАЛЬНЫХ СТАТЕЙ ниже. Факты, числа и даты бери только из текста
+  статьи, source это её адрес. Если статей нет, новости не пиши.
+- fact: интересный факт, лор или история бойца, пасхалка, история режима или карты.
+- top: подборка «Топ-5» (бойцы для режима, лучшие гиперзаряды, самые сильные контрпики и т.п.).
+- tip: совет или разбор механики.
+- poll: опрос.
+Мемы не делай: их бот берёт с площадок. Не повторяй эти темы, они уже были:
 {recent}
+
+СВЕЖИЕ ОФИЦИАЛЬНЫЕ СТАТЬИ:
+{articles}
 
 Формат текста поста (HTML Telegram, только теги b, i, blockquote, a). Каждый факт в своей
 цитате, так в Telegram получаются красивые карточки:
@@ -87,6 +93,8 @@ RULES = """Ты редактор русскоязычного Telegram-кана�
              "title": "до 40 символов", "subtitle": "до 60 символов", "stat": "только настоящее число из фактов игры, иначе пусто",
              "stat_label": "подпись к числу или пусто"}}}}
 {{"kind": "tip", "text": "...", "cover": {{...как выше, kind tip, fun или brawler...}}}}
+{{"kind": "fact", "text": "...", "cover": {{...как выше, kind lore, fun или brawler...}}}}
+{{"kind": "top", "text": "...", "cover": {{...как выше, kind top...}}}}
 {{"kind": "poll", "text": "короткий пост перед опросом", "question": "до 250 символов",
   "options": ["2-6 вариантов до 90 символов"], "cover": {{"kind": "poll", "title": "...", "subtitle": "..."}}}}
 """
@@ -129,8 +137,9 @@ def recent_topics(posts, inbox):
 
 OFFLINE = """
 
-ВАЖНО: поиск сейчас недоступен. Не пиши новости (kind news) совсем: только опросы, советы
-и мемы по общеизвестным механикам игры, без чисел, дат и названий свежих обновлений."""
+ВАЖНО: поиск Google сейчас недоступен. Новости (kind news) пиши только по СВЕЖИМ ОФИЦИАЛЬНЫМ
+СТАТЬЯМ из этого сообщения, с их адресом в source. В остальных постах не используй числа, даты и
+названия свежих обновлений, только общеизвестные механики игры."""
 
 
 def ask_gemini(prompt, models, search=True):
@@ -258,9 +267,17 @@ def build(item, grounded, stamp, number):
         source = item.get("source", "")
         if not trusted(source, grounded):
             return None, f"источник не подтверждён поиском: {source or 'нет'}"
+        article = ARTICLES.get(source.rstrip("/") + "/")
+        if article is not None:
+            made_up = [n for n in re.findall(r"\d+(?:[.,]\d+)?", re.sub(r"#\w+", "", text))
+                       if n not in set(re.findall(r"\d+(?:[.,]\d+)?", article)) and len(n) > 1]
+            if made_up:
+                return None, f"в новости числа, которых нет в статье: {', '.join(made_up[:5])}"
         post.update(source=source, source_name="Supercell" if domain(source) == "supercell.com" else domain(source))
-    if kind in ("news", "tip", "poll"):
-        post["cover_kind"] = (item.get("cover") or {}).get("kind") or ("poll" if kind == "poll" else "tip" if kind == "tip" else "news")
+    if kind in ("news", "tip", "poll", "fact", "top"):
+        default = {"poll": "poll", "tip": "tip", "fact": "lore", "top": "top"}.get(kind, "news")
+        post["cover_kind"] = (item.get("cover") or {}).get("kind") or default
+        post["kind"] = kind
         draw(ROOT / f"{name}.png", cover_args(item.get("cover") or {}), everything)
         post.update(type="photo", image=f"{name}.png")
         image = official_image(post.get("source", "")) if kind == "news" else None
@@ -286,6 +303,40 @@ def build(item, grounded, stamp, number):
     return post, None
 
 
+ARTICLES = {}  # адрес статьи Supercell -> её текст, для новостей и проверки чисел
+
+
+def load_articles(config, limit=3):
+    """Свежие статьи блога Supercell текстом: по ним Gemini пишет новости без поиска Google."""
+    import balance
+
+    blog = (config.get("supercell_blog") or {}).get("url")
+    if not blog:
+        return ""
+    try:
+        links = sources.parse_blog_links(sources.get(blog), blog)[:limit]
+        for link in links:
+            ARTICLES[link] = balance.page_text(sources.get(link))[:6000]
+    except Exception as error:  # noqa: BLE001
+        print(f"Статьи Supercell не загрузились: {error}")
+    return "\n\n".join(f"Адрес: {link}\n{text}" for link, text in ARTICLES.items()) or "нет"
+
+
+def batch_plan(count, polls_ok, articles):
+    """Сколько постов какого вида просить: советов не больше двух, остальное разное."""
+    plan = []
+    if articles:
+        plan += ["news"] * min(2, count)
+    if polls_ok:
+        plan.append("poll")
+    cycle = ["fact", "top", "tip", "fact", "top", "tip", "fact", "top"]
+    while len(plan) < count:
+        plan.append(cycle[len(plan) % len(cycle)])
+    plan = plan[:count]
+    names = {"news": "новость", "poll": "опрос", "fact": "факт или лор", "top": "топ-5", "tip": "совет"}
+    return plan, ", ".join(f"{plan.count(k)} × {names[k]}" for k in names if plan.count(k))
+
+
 def generate(count, posts, inbox, config, only=None):
     """Просит у Gemini count постов. only: нужен ровно один вид (tip, poll, meme)."""
     models = [config["gemini_model"]] if config.get("gemini_model") else DEFAULT_MODELS
@@ -299,7 +350,12 @@ def generate(count, posts, inbox, config, only=None):
             isinstance(i, dict) and i.get("kind") == "poll" for i in items) else "Опросов не делай.")
         if only == "poll":
             poll_rule = "Сделай опрос."
-        prompt = RULES.format(count=part, date=today, poll_rule=poll_rule,
+        articles = ARTICLES and "\n\n".join(f"Адрес: {l}\n{t}" for l, t in ARTICLES.items())
+        made = [i.get("kind") for i in items if isinstance(i, dict)]
+        _, plan_text = batch_plan(part, poll_rule.startswith("Можно") and "poll" not in made, bool(articles))
+        if only:
+            plan_text = f"1 × {only}"
+        prompt = RULES.format(count=part, date=today, plan=plan_text, articles=articles or "нет",
                               recent=(recent_topics(posts, inbox) + done) or "- пока ничего")
         if only:
             prompt += f"\n\nСделай ровно {part} пост(а) вида kind={only}, другие виды не нужны."
@@ -318,7 +374,8 @@ def generate(count, posts, inbox, config, only=None):
                     raise
                 print(f"Следующая порция не получилась: {str(error)[:200]}")
                 break
-            got = [item for item in got if isinstance(item, dict) and item.get("kind") != "news"]
+            got = [item for item in got if isinstance(item, dict) and (
+                item.get("kind") != "news" or (item.get("source", "").rstrip("/") + "/") in ARTICLES)]
         if only:
             got = [item for item in got if isinstance(item, dict) and item.get("kind") == only]
         if not got:
@@ -354,6 +411,55 @@ def build_all(items, grounded, config, tag="gemini", posts=(), only_poll=False):
         else:
             print(f"- пропущен ({reason}): {headline(item.get('text'))}")
     return added
+
+
+def art_albums(count, posts):
+    """Альбомы артов: по 3 кадра из одного официального мультфильма Brawl Stars."""
+    used = {p.get("album_video") for p in posts} | set(bot.read_json(ROOT / "albums_used.json", []))
+    by_video = {}
+    for item in BACKGROUNDS["index"]:
+        if item["id"].startswith("yt-"):  # Только официальный канал, не скриншоты ютуберов.
+            by_video.setdefault(item["video"], []).append(item)
+    albums = []
+    for video, frames in by_video.items():
+        if len(albums) >= count:
+            break
+        if video in used or len(frames) < 2:
+            continue
+        title = clean_title(frames[0]["title"])
+        url = f"https://www.youtube.com/watch?v={video}"
+        text = (f"<b>🎨 АРТЫ ДНЯ</b>\n<i>Кадры из мультфильма «{html.escape(title, quote=False)}»</i>\n\n"
+                f'▶️ <a href="{url}">Смотреть мультфильм целиком</a>\n\n'
+                "Какой кадр лучший? Ставь 🔥\n\n#BrawlStars #арт")
+        images = [f"https://i.ytimg.com/vi/{video}/maxres{f['id'].rsplit('-', 1)[1]}.jpg"
+                  for f in sorted(frames, key=lambda f: f["id"])]
+        albums.append({"type": "album", "images": images, "text": text, "kind": "art", "album_video": video,
+                       "source": url, "source_name": "YouTube: Brawl Stars"})
+    return albums
+
+
+def clean_title(title):
+    return re.sub(r"\s*\((Brawl Stars )?Animation\)|\s*#\w+", "", title or "").strip() or "Brawl Stars"
+
+
+def kind_of(post):
+    return post.get("kind") or ("poll" if post.get("type") == "poll" else "art" if post.get("type") == "album"
+                                else "tip")
+
+
+def diversify(posts, start):
+    """Перемешивает неопубликованные посты так, чтобы один вид не шёл два раза подряд."""
+    waiting, ordered = posts[start:], []
+    while waiting:
+        last = kind_of(ordered[-1]) if ordered else None
+        counts = {}
+        for post in waiting:
+            counts[kind_of(post)] = counts.get(kind_of(post), 0) + 1
+        choices = [p for p in waiting if kind_of(p) != last] or waiting
+        best = max(choices, key=lambda p: counts[kind_of(p)])
+        ordered.append(best)
+        waiting.remove(best)
+    posts[start:] = ordered
 
 
 GUESS = [("poll", "poll"), ("совет", "tip"), ("как ", "tip"), ("секрет", "tip"), ("правильн", "tip"),
@@ -410,6 +516,18 @@ def main():
         save_backgrounds()
         print(f"Перерисовано обложек: {changed}")
         return
+    if "--mix" in sys.argv:
+        # Разово: в очереди слишком много советов подряд. Оставляем три, остальное заменит смесь.
+        start, kept, tips = bot.load_state()["next"], [], 0
+        for post in posts[bot.load_state()["next"]:]:
+            if kind_of(post) == "tip":
+                tips += 1
+                if tips > 3:
+                    print(f"Убираю лишний совет: {headline(post.get('text'))}")
+                    continue
+            kept.append(post)
+        posts[start:] = kept
+        left = len(kept)
     only = sys.argv[sys.argv.index("--publish") + 1] if "--publish" in sys.argv else None
     if left >= TARGET and not only:
         print(f"В очереди {left} постов, пополнять не нужно")
@@ -426,11 +544,15 @@ def main():
         bot.publish(os.environ["TELEGRAM_BOT_TOKEN"], os.environ["TELEGRAM_CHANNEL"], post)
         print(f"Пробный пост (таблица баланса) опубликован: {post['image']}")
         return
-    count = 1 if only else min(TARGET - left, MAX_PER_RUN)
+    need = 1 if only else min(TARGET - left, MAX_PER_RUN)
     inbox = bot.read_json(bot.INBOX, [])
     prepare_backgrounds(config)
+    load_articles(config)
+    albums = [] if only else art_albums(min(2, max(need - 1, 0)), posts)
+    count = need if only else max(need - len(albums), 1)
     items, grounded = generate(count, posts, inbox, config, only)
     added = build_all(items[:count], grounded, config, "test" if only else "gemini", posts, only == "poll")
+    added += albums
     save_backgrounds()
     if only:
         if not added:
@@ -442,8 +564,13 @@ def main():
         print(json.dumps(added, ensure_ascii=False, indent=1))
         return
     if added:
-        bot.QUEUE.write_text(json.dumps(posts + added, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"Добавлено постов: {len(added)}, теперь в очереди: {left + len(added)}")
+        posts += added
+        diversify(posts, bot.load_state()["next"])
+        bot.QUEUE.write_text(json.dumps(posts, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        bot.write_json(ROOT / "albums_used.json", sorted(
+            set(bot.read_json(ROOT / "albums_used.json", [])) | {a["album_video"] for a in albums}))
+    kinds = [kind_of(p) for p in posts[bot.load_state()["next"]:]]
+    print(f"Добавлено постов: {len(added)}, теперь в очереди: {left + len(added)}: {', '.join(kinds)}")
 
 
 if __name__ == "__main__":

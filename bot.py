@@ -252,6 +252,15 @@ def publish(token, channel, post):
             send_file(token, "sendVideo", fields, "video", Path("meme.mp4"), download_video(post["video"]))
         else:
             send_file(token, "sendVideo", fields, "video", ROOT / post["video"])
+    elif kind == "album":
+        # Несколько картинок одним постом: подпись у первой.
+        media = []
+        for number, image in enumerate(post["images"]):
+            item = {"type": "photo", "media": image[3:] if is_file_id(image) else image}
+            if number == 0:
+                item.update(caption=full_text(post), parse_mode="HTML")
+            media.append(item)
+        call(token, "sendMediaGroup", {"chat_id": channel, "media": media})
     elif kind == "poll":
         # В опрос нельзя вложить картинку, поэтому она выходит сообщением перед ним.
         if post.get("image"):
@@ -272,7 +281,11 @@ def publish(token, channel, post):
 def validate_post(post):
     errors = []
     kind = post.get("type", "text")
-    if kind not in ("text", "photo", "poll", "video"):
+    if kind == "album":
+        images = post.get("images", [])
+        if not 2 <= len(images) <= 10 or not all(is_url(i) or is_file_id(i) for i in images):
+            errors.append("в альбоме нужно от 2 до 10 картинок по ссылке")
+    if kind not in ("text", "photo", "poll", "video", "album"):
         return [f"неизвестный тип {kind}"]
     if kind == "poll":
         options = post.get("options", [])

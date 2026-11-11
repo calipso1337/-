@@ -111,3 +111,34 @@ def test_polls_are_rare():
     assert writer.poll_allowed(posts)
     assert not writer.poll_allowed(posts + [{"type": "poll"}] + [{"type": "photo"}] * 9)
     assert writer.poll_allowed(posts + [{"type": "poll"}] + [{"type": "photo"}] * 10)
+
+
+def test_batch_plan_is_varied():
+    plan, text = writer.batch_plan(8, True, True)
+    assert plan.count("tip") <= 2 and plan.count("news") == 2 and plan.count("poll") == 1
+    assert {"fact", "top"} <= set(plan) and "совет" in text
+    plan, _ = writer.batch_plan(5, False, False)
+    assert "news" not in plan and "poll" not in plan
+
+
+def test_diversify_no_same_kind_in_a_row():
+    posts = [{"kind": "old"}] + [{"kind": "tip", "n": i} for i in range(5)] + \
+            [{"kind": "art"}, {"kind": "art"}, {"kind": "fact"}, {"type": "poll"}, {"kind": "top"}]
+    writer.diversify(posts, 1)
+    kinds = [writer.kind_of(p) for p in posts[1:]]
+    assert posts[0] == {"kind": "old"} and sorted(kinds) == sorted(["tip"] * 5 + ["art", "art", "fact", "poll", "top"])
+    assert sum(a == b for a, b in zip(kinds, kinds[1:])) <= 1
+
+
+def test_art_albums(monkeypatch, tmp_path):
+    monkeypatch.setattr(writer, "ROOT", tmp_path)
+    writer.BACKGROUNDS["index"] = [
+        {"id": "yt-v1-1", "video": "v1", "title": "Gus's Origin Story! (Brawl Stars Animation)"},
+        {"id": "yt-v1-3", "video": "v1", "title": "Gus's Origin Story! (Brawl Stars Animation)"},
+        {"id": "gp-v2-1", "video": "v2", "title": "Скриншот"}, {"id": "gp-v2-2", "video": "v2", "title": "x"},
+        {"id": "yt-v3-2", "video": "v3", "title": "Один кадр"}]
+    albums = writer.art_albums(2, [])
+    assert len(albums) == 1 and albums[0]["images"] == ["https://i.ytimg.com/vi/v1/maxres1.jpg",
+                                                        "https://i.ytimg.com/vi/v1/maxres3.jpg"]
+    assert "«Gus's Origin Story!»" in albums[0]["text"] and writer.bot.validate_post(albums[0]) == []
+    assert writer.art_albums(2, albums) == []  # Тот же мультфильм второй раз не берём.

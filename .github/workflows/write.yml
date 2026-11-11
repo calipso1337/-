@@ -8,6 +8,10 @@ on:
         description: "Перерисовать обложки постов в очереди на официальном фоне"
         type: boolean
         default: false
+      mix:
+        description: "Разбавить очередь: оставить 3 совета, добавить новости, факты, топы, опрос и арты"
+        type: boolean
+        default: false
   schedule:
     - cron: "41 23 * * *"
 
@@ -25,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: pip install -q pillow pytest "opencv-python-headless<5" yt-dlp
-      - run: python3 writer.py ${{ inputs.restyle && '--restyle' || '' }}
+      - run: python3 writer.py ${{ inputs.restyle && '--restyle' || '' }} ${{ inputs.mix && '--mix' || '' }}
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       - run: python3 bot.py --check && python3 -m pytest tests -q
@@ -34,7 +38,7 @@ jobs:
           git config user.name "channel-bot"
           git config user.email "channel-bot@users.noreply.github.com"
           git add queue.json images
-          [ -f art_used.json ] && git add art_used.json
+          for file in art_used.json albums_used.json; do [ -f "$file" ] && git add "$file"; done
           git diff --cached --quiet && exit 0
           git commit -m "${{ inputs.restyle && 'Новые обложки на официальном фоне' || 'Новые посты от Gemini' }}"
           for attempt in 1 2 3; do

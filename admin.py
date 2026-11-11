@@ -25,10 +25,13 @@ import bot
 
 ROOT = bot.ROOT
 SYNC = os.environ.get("ADMIN_GIT_SYNC", "1") == "1"
-MENU = {"keyboard": [[{"text": "📋 Очередь"}, {"text": "⏰ Следующий пост"}], [{"text": "❓ Помощь"}]],
+MENU = {"keyboard": [[{"text": "📋 Очередь"}, {"text": "📜 Вся очередь"}],
+                     [{"text": "🤖 Автопосты"}, {"text": "⏰ Следующий пост"}], [{"text": "❓ Помощь"}]],
         "resize_keyboard": True}
 HELP = (
     "<b>Управление каналом</b> (доступно только владельцу канала)\n\n"
+    "📜 <b>Вся очередь</b>: весь список одним сообщением, вместе с автопостами.\n"
+    "🤖 <b>Автопосты</b>: мемы, видео и новости, которые бот нашёл сам; их можно посмотреть и удалить.\n"
     "📋 <b>Очередь</b>: сколько постов ждут и кнопки у каждого:\n"
     "👁 посмотреть пост целиком, 🚀 опубликовать сейчас, ✏️ заменить текст или медиа, 🗑 удалить.\n\n"
     "➕ <b>Новый пост</b>: просто пришли сюда текст, фото, видео или GIF с подписью. "
@@ -137,7 +140,7 @@ def pid(post):
 
 def title(post):
     text = re.sub(r"<[^>]+>", "", (post.get("text") or post.get("question") or "").split("\n")[0])
-    icon = {"photo": "🖼", "video": "🎬", "poll": "📊"}.get(post.get("type"), "📝")
+    icon = {"photo": "🖼", "video": "🎬", "poll": "📊", "album": "🎨"}.get(post.get("type"), "📝")
     return f"{icon} {html.unescape(text).strip()[:45] or 'без текста'}"
 
 
@@ -152,7 +155,7 @@ def refresh():
         git("reset", "-q", "--hard", "origin/main")
 
 
-def mutate(change, message):
+def mutate(change, message, extra=()):
     """Меняет очередь и состояние на свежей версии и сразу сохраняет в GitHub.
 
     change(posts, state) возвращает результат или None, если менять нечего."""
@@ -167,7 +170,7 @@ def mutate(change, message):
         bot.write_json(bot.STATE, state)
         if not SYNC:
             return result
-        git("add", "queue.json", "state.json")
+        git("add", "queue.json", "state.json", *extra)
         git("commit", "-q", "-m", message)
         if git("push", "-q", "origin", "HEAD:main").returncode == 0:
             return result
@@ -258,12 +261,61 @@ class Admin:
             rows.append(nav)
         return self.say(chat, head + "\n\n" + "\n".join(lines), {"inline_keyboard": rows})
 
+    def full_list(self, chat):
+        refresh()
+        posts, state = json.loads(bot.QUEUE.read_text(encoding="utf-8")), bot.load_state()
+        inbox = bot.read_json(bot.INBOX, [])
+        moment = bot.next_post_at(self.config, state, time.time())
+        lines = [f"📜 <b>Вся очередь</b>, следующий пост {bot.clock(self.config, moment):%d.%m в %H:%M}", "",
+                 f"<b>Посты ({len(posts) - state['next']}):</b>"]
+        lines += [f"{n}. {html.escape(title(p), quote=False)}" for n, p in enumerate(posts[state["next"]:], 1)]
+        names = {"meme": "😂 мем", "news": "📰 новость/видео"}
+        lines += ["", f"<b>Автопосты ({len(inbox)}), выходят в свои слоты (мем каждым "
+                      f"{self.config.get('meme_every', 3)}-м постом, новости сразу):</b>"]
+        lines += [f"• {names.get(i['kind'], i['kind'])}: {html.escape(title(i['post']), quote=False)}" for i in inbox]
+        if not inbox:
+            lines.append("пока нет")
+        text, chunk = "\n".join(lines), ""
+        for line in text.split("\n"):
+            if len(chunk) + len(line) > 3800:
+                self.say(chat, chunk)
+                chunk = ""
+            chunk += line + "\n"
+        return self.say(chat, chunk)
+
+    def auto_view(self, chat):
+        refresh()
+        inbox = bot.read_json(bot.INBOX, [])
+        if not inbox:
+            return self.say(chat, "🤖 Автопостов сейчас нет: бот ищет мемы, видео и новости перед каждым постом.")
+        rows, lines = [], []
+        for number, item in enumerate(inbox[:20], 1):
+            lines.append(f"{number}. {html.escape(title(item['post']), quote=False)}")
+            key = pid(item["post"])
+            rows.append([{"text": f"{number} 👁", "callback_data": f"iv:{key}"},
+                         {"text": "🗑", "callback_data": f"id:{key}"}])
+        return self.say(chat, f"🤖 <b>Автопосты: {len(inbox)}</b>\n\n" + "\n".join(lines), {"inline_keyboard": rows})
+
     def on_callback(self, query):
         chat = query["message"]["chat"]["id"]
         action, _, key = query.get("data", "").partition(":")
         self.api("answerCallbackQuery", callback_query_id=query["id"])
         if action == "q":
             return self.queue_view(chat, int(key))
+        if action == "iv":
+            refresh()
+            item = next((i for i in bot.read_json(bot.INBOX, []) if pid(i["post"]) == key), None)
+            return bot.publish(self.token, chat, item["post"]) if item else self.say(chat, "Этого автопоста уже нет.")
+        if action == "id":
+            def drop_auto(posts, state):
+                inbox = bot.read_json(bot.INBOX, [])
+                kept = [i for i in inbox if pid(i["post"]) != key]
+                if len(kept) == len(inbox):
+                    return None
+                bot.write_json(bot.INBOX, kept)
+                return True
+            done = mutate(drop_auto, "Админ удалил автопост", extra=("inbox.json",))
+            return self.say(chat, "🗑 Автопост удалён." if done else "Этого автопоста уже нет.")
         if action == "v":
             refresh()
             posts, state = json.loads(bot.QUEUE.read_text(encoding="utf-8")), bot.load_state()
@@ -340,6 +392,10 @@ class Admin:
             return self.say(chat, HELP, MENU)
         if text in ("/queue", "📋 Очередь"):
             return self.queue_view(chat)
+        if text in ("/all", "📜 Вся очередь"):
+            return self.full_list(chat)
+        if text in ("/auto", "🤖 Автопосты"):
+            return self.auto_view(chat)
         if text in ("/next", "⏰ Следующий пост"):
             state = bot.load_state()
             moment = bot.next_post_at(self.config, state, time.time())

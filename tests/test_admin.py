@@ -184,3 +184,17 @@ def test_only_owner_manages(bot_env):
     robot, fake = bot_env
     robot.handle({"message": {"chat": {"id": 222, "type": "private"}, "from": {"id": 222}, "text": "📋 Очередь"}})
     assert "служебный бот" in fake.sent("sendMessage")[-1]["text"]
+
+
+def test_full_list_and_auto_posts(bot_env):
+    robot, fake = bot_env
+    item = {"kind": "meme", "id": "m1", "added": 1, "post": {"type": "photo", "image": "https://e.com/a.jpg",
+                                                            "text": "<b>😂 МЕМ ДНЯ</b>"}}
+    bot.write_json(bot.INBOX, [item])
+    robot.handle(private("📜 Вся очередь"))
+    text = fake.sent("sendMessage")[-1]["text"]
+    assert "Первый" in text and "Второй" in text and "МЕМ ДНЯ" in text and "Автопосты (1)" in text
+    robot.handle(private("🤖 Автопосты"))
+    assert fake.sent("sendMessage")[-1]["reply_markup"]["inline_keyboard"][0][1]["text"] == "🗑"
+    robot.handle(press(f"id:{admin.pid(item['post'])}"))
+    assert bot.read_json(bot.INBOX, None) == []
