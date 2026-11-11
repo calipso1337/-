@@ -89,21 +89,17 @@ FALLBACK_COVER = "images/auto-supercell-news.png"
 
 
 def video_card(video_id, short, text, url, channel):
-    """Пост с обложкой ролика и ссылкой: превью YouTube Telegram показывает ненадёжно,
-    а скачивать чужие видео нельзя, поэтому картинка + «Смотреть видео»."""
-    # У Shorts нет maxresdefault, у обычных роликов он почти всегда есть.
-    image = f"https://i.ytimg.com/vi/{video_id}/{'hqdefault' if short else 'maxresdefault'}.jpg"
-    return {"type": "photo", "image": image, "fallback_image": FALLBACK_COVER, "text": text,
-            "source": url, "source_name": f"YouTube: {channel['name']}"}
+    """Пост-ссылка с превью YouTube над текстом: в Telegram это мини-плеер с кнопкой ▶️."""
+    return {"type": "text", "text": text, "video_url": url, "source": url,
+            "source_name": f"YouTube: {channel['name']}"}
 
 
 def youtube_post(video, channel):
-    url = html.escape(video["url"], quote=True)
     text = (
         "<b>🎬 НОВОЕ ВИДЕО</b>\n"
         f"<i>{clean(video['title'], 200)}</i>\n\n"
         f"{author_line(channel)}\n"
-        f'▶️ <a href="{url}">Смотреть видео</a>\n\n'
+        "▶️ Плеер над постом\n\n"
         "🔥 уже посмотрел · 👀 смотрю сейчас\n\n"
         "#BrawlStars #видео"
     )
@@ -315,7 +311,7 @@ def short_post(video_id, title, channel):
         "<b>😂 МЕМ ДНЯ</b>\n"
         f"<i>{clean(title, 200)}</i>\n\n"
         f"{author_line(channel)}\n"
-        f'▶️ <a href="{url}">Смотреть видео</a>\n\n'
+        "▶️ Плеер над постом\n\n"
         "Ставь 😂 если зашло\n\n"
         "#BrawlStars #мем"
     )

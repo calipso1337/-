@@ -299,7 +299,10 @@ class Admin:
     def on_callback(self, query):
         chat = query["message"]["chat"]["id"]
         action, _, key = query.get("data", "").partition(":")
-        self.api("answerCallbackQuery", callback_query_id=query["id"])
+        try:
+            self.api("answerCallbackQuery", callback_query_id=query["id"])
+        except RuntimeError as error:  # Старое нажатие: ответить нельзя, но действие выполним.
+            print(f"answerCallbackQuery: {error}")
         if action == "q":
             return self.queue_view(chat, int(key))
         if action == "iv":
@@ -486,6 +489,11 @@ class Admin:
     # ----- цикл -----
 
     def handle(self, update):
+        kind = next((k for k in update if k != "update_id"), "?")
+        body = update.get(kind) or {}
+        who = (body.get("from") or {}).get("id")
+        print(f"Событие {update.get('update_id')}: {kind} от {who}: "
+              f"{(body.get('data') or body.get('text') or '')[:40]!r}", flush=True)
         if "callback_query" in update:
             return self.on_callback(update["callback_query"])
         message = update.get("message") or update.get("edited_message")
@@ -508,7 +516,7 @@ class Admin:
                     "offset": offset, "timeout": wait,
                     "allowed_updates": ["message", "edited_message", "callback_query"]}).get("result", [])
             except RuntimeError as error:
-                print(f"getUpdates: {error}")
+                print(f"getUpdates: {error}", flush=True)
                 time.sleep(5)
                 continue
             for update in updates:
