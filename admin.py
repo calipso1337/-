@@ -28,7 +28,7 @@ SYNC = os.environ.get("ADMIN_GIT_SYNC", "1") == "1"
 MENU = {"keyboard": [[{"text": "📋 Очередь"}, {"text": "⏰ Следующий пост"}], [{"text": "❓ Помощь"}]],
         "resize_keyboard": True}
 HELP = (
-    "<b>Управление каналом</b>\n\n"
+    "<b>Управление каналом</b> (доступно только владельцу канала)\n\n"
     "📋 <b>Очередь</b>: сколько постов ждут и кнопки у каждого:\n"
     "👁 посмотреть пост целиком, 🚀 опубликовать сейчас, ✏️ заменить текст или медиа, 🗑 удалить.\n\n"
     "➕ <b>Новый пост</b>: просто пришли сюда текст, фото, видео или GIF с подписью. "
@@ -204,11 +204,28 @@ class Admin:
     def setup(self):
         """Кто админ канала и какой чат у него для комментариев."""
         members = self.api("getChatAdministrators", chat_id=self.channel) or []
-        self.admins = {m["user"]["id"] for m in members if not m["user"].get("is_bot")}
         self.owner = next((m["user"]["id"] for m in members if m.get("status") == "creator"), None)
+        # Управлять ботом может только владелец канала.
+        self.admins = {self.owner} if self.owner else set()
         info = self.api("getChat", chat_id=self.channel) or {}
         self.chat = info.get("linked_chat_id")
-        print(f"Админов: {len(self.admins)}, чат обсуждений: {self.chat or 'нет'}")
+        me = self.api("getMe") or {}
+        self.username = me.get("username", "")
+        print(f"Бот @{self.username}, владелец: {self.owner}, чат обсуждений: {self.chat or 'нет'}")
+
+    def hello(self):
+        """Пробует написать владельцу первым. Telegram разрешает это, только если владелец уже нажимал «Старт»."""
+        self.setup()
+        hook = self.api("getWebhookInfo") or {}
+        if hook.get("url"):
+            print("У бота был webhook, он мешал получать сообщения: удаляю")
+            self.api("deleteWebhook")
+        try:
+            self.say(self.owner, "👋 Привет! Я бот канала. Управление очередью и модерация здесь.\n\n" + HELP, MENU)
+            print("Владельцу отправлено приветствие")
+        except RuntimeError as error:
+            print(f"Написать первым не получилось ({error}). Открой ссылку и нажми «Старт»: "
+                  f"https://t.me/{self.username}?start=admin")
 
     # ----- очередь -----
 
@@ -319,7 +336,7 @@ class Admin:
         chat, text = message["chat"]["id"], (message.get("text") or "").strip()
         if message.get("from", {}).get("id") not in self.admins:
             return self.say(chat, "Это служебный бот канала t.me/All_About_Brawl. Подписывайся! 🙂")
-        if text in ("/start", "/help", "❓ Помощь"):
+        if text.startswith("/start") or text in ("/help", "❓ Помощь"):
             return self.say(chat, HELP, MENU)
         if text in ("/queue", "📋 Очередь"):
             return self.queue_view(chat)
@@ -472,3 +489,5 @@ def main():
 
 if __name__ == "__main__" and "--until-post" in sys.argv:
     main()
+elif __name__ == "__main__" and "--hello" in sys.argv:
+    Admin(os.environ["TELEGRAM_BOT_TOKEN"], os.environ["TELEGRAM_CHANNEL"]).hello()

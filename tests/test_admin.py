@@ -70,6 +70,7 @@ class FakeTelegram:
         self.calls.append((method, payload))
         if method == "getChatAdministrators":
             return {"result": [{"status": "creator", "user": {"id": OWNER}},
+                               {"status": "administrator", "user": {"id": 222}},
                                {"status": "administrator", "user": {"id": 5, "is_bot": True}}]}
         if method == "getChat":
             return {"result": {"linked_chat_id": CHAT}}
@@ -177,3 +178,9 @@ def test_flood(bot_env):
     for _ in range(6):
         robot.handle(group("ааа"))
     assert "флуд" in fake.sent("sendMessage")[-1]["text"]
+
+
+def test_only_owner_manages(bot_env):
+    robot, fake = bot_env
+    robot.handle({"message": {"chat": {"id": 222, "type": "private"}, "from": {"id": 222}, "text": "📋 Очередь"}})
+    assert "служебный бот" in fake.sent("sendMessage")[-1]["text"]

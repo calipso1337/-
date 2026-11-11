@@ -226,7 +226,8 @@ def save_backgrounds():
 def draw(path, args, topic=""):
     import random
 
-    background = art.pick(topic, BACKGROUNDS["index"], BACKGROUNDS["used"])
+    share = float(os.environ.get("SCREENSHOT_SHARE", "0.5"))  # 1 = только скриншоты из игры.
+    background = art.pick(topic, BACKGROUNDS["index"], BACKGROUNDS["used"], share)
     extra = []
     if background:
         extra = ["--bg", background["path"], "--focus", f"{random.uniform(0.1, 0.9):.2f}",
@@ -415,6 +416,16 @@ def main():
         return
     if not os.environ.get("GEMINI_API_KEY"):
         sys.exit("Не задан секрет GEMINI_API_KEY: добавь ключ из https://aistudio.google.com/apikey")
+    if only == "balance":
+        import balance
+
+        zone = timezone(timedelta(hours=config.get("timezone_offset_hours", 3)))
+        models = [config["gemini_model"]] if config.get("gemini_model") else DEFAULT_MODELS
+        post = balance.balance_post(config, lambda prompt: ask_gemini(prompt, models, search=False), ROOT,
+                                    datetime.now(zone).strftime("%Y-%m-%d-%H%M"))
+        bot.publish(os.environ["TELEGRAM_BOT_TOKEN"], os.environ["TELEGRAM_CHANNEL"], post)
+        print(f"Пробный пост (таблица баланса) опубликован: {post['image']}")
+        return
     count = 1 if only else min(TARGET - left, MAX_PER_RUN)
     inbox = bot.read_json(bot.INBOX, [])
     prepare_backgrounds(config)
