@@ -558,7 +558,8 @@ def main():
         load_articles(config)
     albums = [] if only else art_albums(min(2, max(need - 1, 0)), posts)
     moments = []
-    if not only or only == "moment":
+    # Посты-ссылки с таймкодом владелец не хочет: только по явному запросу (--publish moment).
+    if only == "moment" or (not only and config.get("moments")):
         import moments as moment_finder
 
         used = set(bot.read_json(ROOT / "moments_used.json", []))
