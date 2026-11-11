@@ -489,5 +489,15 @@ def main():
 
 if __name__ == "__main__" and "--until-post" in sys.argv:
     main()
+elif __name__ == "__main__" and "--preview-test" in sys.argv:
+    # Какая ссылка на YouTube даёт плеер прямо в Telegram: присылаем владельцу четыре варианта.
+    robot = Admin(os.environ["TELEGRAM_BOT_TOKEN"], os.environ["TELEGRAM_CHANNEL"])
+    robot.setup()
+    short = sys.argv[sys.argv.index("--preview-test") + 1]
+    for number, url in enumerate([f"https://www.youtube.com/shorts/{short}", f"https://youtu.be/{short}",
+                                  f"https://www.youtube.com/watch?v={short}", f"https://m.youtube.com/shorts/{short}"], 1):
+        robot.api("sendMessage", chat_id=robot.owner, text=f"Вариант {number}: {url}",
+                  link_preview_options={"url": url, "prefer_large_media": True, "show_above_text": True})
+    print("Отправлено 4 варианта")
 elif __name__ == "__main__" and "--hello" in sys.argv:
     Admin(os.environ["TELEGRAM_BOT_TOKEN"], os.environ["TELEGRAM_CHANNEL"]).hello()

@@ -13,7 +13,7 @@ on:
       test:
         description: "Пробный пост из источника прямо сейчас"
         type: choice
-        options: [none, hello, meme, news, video, gemini_tip, gemini_screenshot, gemini_balance, gemini_poll]
+        options: [none, hello, preview, meme, news, video, gemini_tip, gemini_screenshot, gemini_balance, gemini_poll]
         default: none
 
 permissions:
@@ -50,7 +50,9 @@ jobs:
         run: pip install -q yt-dlp
       - name: Опубликовать
         run: |
-          if [ "${{ inputs.test }}" = "hello" ]; then
+          if [ "${{ inputs.test }}" = "preview" ]; then
+            python3 admin.py --preview-test USaMQE8-Jww
+          elif [ "${{ inputs.test }}" = "hello" ]; then
             python3 admin.py --hello
           elif [ "${{ inputs.test }}" = "gemini_screenshot" ]; then
             pip install -q pillow "opencv-python-headless<5"
