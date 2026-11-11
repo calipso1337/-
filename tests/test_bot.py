@@ -100,8 +100,11 @@ def test_video_link_shows_player_above_text(run):
     go, server = run
     url = "https://www.youtube.com/watch?v=abc"
     go([{"type": "text", "text": "Смотри", "video_url": url, "source": url, "source_name": "YouTube"}])
-    preview = json.loads(server.calls[0][2])["link_preview_options"]
-    assert preview == {"url": url, "prefer_large_media": True, "show_above_text": True}
+    methods = [call[0] for call in server.calls]
+    assert methods[0] == "getChatAdministrators"  # Сначала прогрев превью (здесь владельца нет, пропущен).
+    post = json.loads(server.calls[-1][2])
+    assert post["chat_id"] == "@channel"
+    assert post["link_preview_options"] == {"url": url, "prefer_large_media": True, "show_above_text": True}
 
 
 def test_url_image_uses_json(run):

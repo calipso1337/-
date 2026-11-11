@@ -429,6 +429,24 @@ def test_post(token, channel, kind, config):
     print(f"Пробный пост ({kind}) опубликован: {item_id}")
 
 
+def warm_preview(token, channel, post):
+    """Заранее показывает Telegram ссылку на видео, чтобы к публикации превью с плеером
+    уже было готово: тихо отправляем её владельцу канала и сразу удаляем."""
+    url = post.get("video_url")
+    if not url:
+        return
+    try:
+        members = call(token, "getChatAdministrators", {"chat_id": channel}).get("result", [])
+        owner = next(m["user"]["id"] for m in members if m.get("status") == "creator")
+        sent = call(token, "sendMessage", {"chat_id": owner, "text": url, "disable_notification": True,
+                                           "link_preview_options": {"url": url, "prefer_large_media": True}})
+        time.sleep(15)
+        call(token, "deleteMessage", {"chat_id": owner, "message_id": sent["result"]["message_id"]})
+        print("Превью видео подготовлено")
+    except Exception as error:  # noqa: BLE001 - без прогрева пост всё равно выйдет
+        print(f"Прогреть превью не получилось: {error}")
+
+
 def choose(posts, state, inbox, config, day, manual):
     """Что публиковать: ("meme"|"news", элемент inbox) или ("queue", номер) или None."""
     memes = [item for item in inbox if item["kind"] == "meme"]
@@ -490,12 +508,14 @@ def main():
         write_json(SEEN, seen)
         write_json(INBOX, inbox)
 
+    day = clock(config, moment or time.time()).date().isoformat()
+    choice = choose(posts, state, inbox, config, day, manual)
+    if choice:
+        chosen = posts[choice[1]] if choice[0] == "queue" else choice[1]["post"]
+        warm_preview(token, channel, chosen)
     if moment and moment > time.time():
         print(f"Жду {clock(config, moment):%H:%M:%S}: {int(moment - time.time())} с")
         time.sleep(moment - time.time())
-    day = clock(config, time.time()).date().isoformat()
-
-    choice = choose(posts, state, inbox, config, day, manual)
     if choice is None:
         print("Публиковать нечего: очередь закончилась, добавь новые посты в queue.json")
     else:

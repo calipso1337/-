@@ -556,6 +556,21 @@ def main():
     prepare_backgrounds(config)
     load_articles(config)
     albums = [] if only else art_albums(min(2, max(need - 1, 0)), posts)
+    moments = []
+    if not only or only == "moment":
+        import moments as moment_finder
+
+        used = set(bot.read_json(ROOT / "moments_used.json", []))
+        models = [config["gemini_model"]] if config.get("gemini_model") else DEFAULT_MODELS
+        moments = moment_finder.find_moments(1 if only else min(2, max(need - len(albums) - 1, 0)), used, models)
+        bot.write_json(ROOT / "moments_used.json", sorted(used))
+        if only == "moment":
+            if not moments:
+                sys.exit("Подходящий момент не нашёлся, попробуй ещё раз")
+            bot.publish(os.environ["TELEGRAM_BOT_TOKEN"], os.environ["TELEGRAM_CHANNEL"], moments[0])
+            print("Пробный пост (момент из игры) опубликован")
+            return
+    albums += moments
     count = need if only else max(need - len(albums), 1)
     items, grounded = generate(count, posts, inbox, config, only)
     added = build_all(items[:count], grounded, config, "test" if only else "gemini", posts, only == "poll")
@@ -575,7 +590,7 @@ def main():
         diversify(posts, bot.load_state()["next"])
         bot.QUEUE.write_text(json.dumps(posts, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         bot.write_json(ROOT / "albums_used.json", sorted(
-            set(bot.read_json(ROOT / "albums_used.json", [])) | {a["album_video"] for a in albums}))
+            set(bot.read_json(ROOT / "albums_used.json", [])) | {a["album_video"] for a in albums if "album_video" in a}))
     kinds = [kind_of(p) for p in posts[bot.load_state()["next"]:]]
     print(f"Добавлено постов: {len(added)}, теперь в очереди: {left + len(added)}: {', '.join(kinds)}")
 
