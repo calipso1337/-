@@ -142,3 +142,10 @@ def test_art_albums(monkeypatch, tmp_path):
                                                         "https://i.ytimg.com/vi/v1/maxres3.jpg"]
     assert "«Gus's Origin Story!»" in albums[0]["text"] and writer.bot.validate_post(albums[0]) == []
     assert writer.art_albums(2, albums) == []  # Тот же мультфильм второй раз не берём.
+
+
+def test_one_news_per_article(no_network):
+    news = {**NEWS, "kind": "news"}
+    added = writer.build_all([news, {**news, "text": "<b>ДУБЛЬ</b>"}], set(), {}, posts=[])
+    assert len(added) == 1
+    assert writer.build_all([news], set(), {}, posts=added) == []

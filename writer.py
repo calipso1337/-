@@ -391,12 +391,19 @@ def build_all(items, grounded, config, tag="gemini", posts=(), only_poll=False):
     stamp = datetime.now(zone).strftime("%Y-%m-%d-%H%M") + ("" if tag == "gemini" else f"-{tag}")
     added = []
     polls_ok = poll_allowed(posts) or only_poll
+    # Одна статья даёт одну новость, даже если Gemini написал по ней две.
+    used_sources = {p.get("source") for p in posts if p.get("kind") == "news"}
     for number, item in enumerate(items, 1):
         if not isinstance(item, dict):
             continue
         if item.get("kind") == "meme":
             print(f"- пропущен (мемы бот берёт с площадок): {headline(item.get('text'))}")
             continue
+        if item.get("kind") == "news":
+            if item.get("source") in used_sources:
+                print(f"- пропущен (по этой статье уже есть новость): {headline(item.get('text'))}")
+                continue
+            used_sources.add(item.get("source"))
         if item.get("kind") == "poll":
             if not polls_ok:
                 print(f"- пропущен (опросы не чаще одного на {POLL_EVERY} постов): {headline(item.get('text'))}")
