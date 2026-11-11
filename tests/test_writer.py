@@ -27,6 +27,8 @@ def no_network(monkeypatch, tmp_path):
     (tmp_path / "images").mkdir()
     (tmp_path / "tools").symlink_to(ROOT / "tools")
     monkeypatch.setattr(writer, "official_image", lambda url: None)
+    monkeypatch.setitem(writer.BACKGROUNDS, "index", [])
+    monkeypatch.setitem(writer.BACKGROUNDS, "used", [])
     monkeypatch.setattr(writer.bot, "ROOT", tmp_path)
     return tmp_path
 
@@ -132,11 +134,11 @@ def test_diversify_no_same_kind_in_a_row():
 
 def test_art_albums(monkeypatch, tmp_path):
     monkeypatch.setattr(writer, "ROOT", tmp_path)
-    writer.BACKGROUNDS["index"] = [
+    monkeypatch.setitem(writer.BACKGROUNDS, "index", [
         {"id": "yt-v1-1", "video": "v1", "title": "Gus's Origin Story! (Brawl Stars Animation)"},
         {"id": "yt-v1-3", "video": "v1", "title": "Gus's Origin Story! (Brawl Stars Animation)"},
         {"id": "gp-v2-1", "video": "v2", "title": "Скриншот"}, {"id": "gp-v2-2", "video": "v2", "title": "x"},
-        {"id": "yt-v3-2", "video": "v3", "title": "Один кадр"}]
+        {"id": "yt-v3-2", "video": "v3", "title": "Один кадр"}])
     albums = writer.art_albums(2, [])
     assert len(albums) == 1 and albums[0]["images"] == ["https://i.ytimg.com/vi/v1/maxres1.jpg",
                                                         "https://i.ytimg.com/vi/v1/maxres3.jpg"]
