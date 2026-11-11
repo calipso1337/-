@@ -13,6 +13,7 @@ import time
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from pathlib import Path
 from html.parser import HTMLParser
 
 USER_AGENT = "AllAboutBrawlBot/1.0 (+https://t.me/All_About_Brawl)"
@@ -59,21 +60,36 @@ def parse_youtube(xml_bytes):
         if not video_id:
             continue
         stamp = calendar.timegm(time.strptime(published[:19], "%Y-%m-%dT%H:%M:%S")) if published else 0
+        link = entry.find("a:link", ATOM)
         videos.append(
             {
                 "id": video_id,
                 "title": entry.findtext("a:title", "", ATOM),
                 "url": f"https://www.youtube.com/watch?v={video_id}",
                 "published": stamp,
+                "short": link is not None and "/shorts/" in link.get("href", ""),
             }
         )
     return videos
 
 
-def youtube_post(video, channel_name):
+def russian(title):
+    """Название на русском: хотя бы 5 кириллических букв и не меньше 30% всех букв."""
+    letters = re.findall(r"[^\W\d_]", title or "")
+    cyrillic = [c for c in letters if "а" <= c.lower() <= "я" or c.lower() == "ё"]
+    return len(cyrillic) >= 5 and len(cyrillic) / len(letters) >= 0.3
+
+
+def author_line(channel):
+    url = f"https://www.youtube.com/channel/{channel['channel_id']}"
+    return f'👤 Автор: <a href="{url}">{html.escape(channel["name"], quote=False)}</a>'
+
+
+def youtube_post(video, channel):
     text = (
-        f"<b>🎬 НОВОЕ ВИДЕО {html.escape(channel_name.upper(), quote=False)}</b>\n"
+        "<b>🎬 НОВОЕ ВИДЕО</b>\n"
         f"<i>{clean(video['title'], 200)}</i>\n\n"
+        f"{author_line(channel)}\n"
         "▶️ Плеер прямо над постом, смотри не выходя из Telegram\n\n"
         "🔥 уже посмотрел · 👀 смотрю сейчас\n\n"
         "#BrawlStars #видео"
@@ -83,8 +99,12 @@ def youtube_post(video, channel_name):
         "text": text,
         "video_url": video["url"],
         "source": video["url"],
-        "source_name": f"YouTube: {channel_name}",
+        "source_name": f"YouTube: {channel['name']}",
     }
+
+
+def good_video(video):
+    return not video.get("short") and russian(video["title"]) and not BAD_WORDS.search(video["title"])
 
 
 # ---------- Блог Supercell ----------
@@ -228,20 +248,25 @@ def add(inbox, kind, item_id, post, now):
 
 
 def fetch_youtube(config, inbox, seen, now):
-    for channel in config.get("youtube", []):
+    """Новые ролики на русском с каналов video_channels (ютуберы по Brawl Stars)."""
+    for channel in config.get("video_channels", []):
         key = f"youtube:{channel['channel_id']}"
         first_run = key not in seen
         url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel['channel_id']}"
-        videos = parse_youtube(get(url))
+        try:
+            videos = parse_youtube(get(url))
+        except Exception as error:  # noqa: BLE001
+            print(f"YouTube {channel['name']}: {error}")
+            continue
         seen.setdefault(key, [])  # Только после успешной загрузки, иначе потом выйдет весь архив.
         for video in reversed(videos):
             if video["id"] in seen[key]:
                 continue
             remember(seen, key, video["id"])
             # При первом запуске старые ролики просто запоминаем, чтобы не завалить канал.
-            if not first_run and now - video["published"] < NEWS_TTL:
-                add(inbox, "news", video["id"], youtube_post(video, channel["name"]), now)
-                print(f"YouTube: новое видео {video['title']}")
+            if not first_run and now - video["published"] < NEWS_TTL and good_video(video):
+                add(inbox, "news", video["id"], youtube_post(video, channel), now)
+                print(f"YouTube: {channel['name']}: {video['title']}")
 
 
 def fetch_blog(config, inbox, seen, now):
@@ -266,7 +291,7 @@ def fetch_blog(config, inbox, seen, now):
 
 
 def shorts_list(channel_id, limit=30):
-    """Shorts официального канала: [(id, название)]. Только список, без скачивания."""
+    """Shorts канала: [(id, название)]. Только список, без скачивания."""
     import subprocess
 
     done = subprocess.run(
@@ -277,34 +302,49 @@ def shorts_list(channel_id, limit=30):
     return [line.split("\t", 1) for line in done.stdout.splitlines() if "\t" in line]
 
 
-def short_post(video_id, title, channel_name):
+def short_post(video_id, title, channel):
     url = f"https://www.youtube.com/watch?v={video_id}"
     text = (
-        "<b>😂 МОМЕНТ ДНЯ</b>\n"
+        "<b>😂 МЕМ ДНЯ</b>\n"
         f"<i>{clean(title, 200)}</i>\n\n"
+        f"{author_line(channel)}\n"
         "▶️ Смотри прямо здесь, плеер над постом\n\n"
         "Ставь 😂 если зашло\n\n"
         "#BrawlStars #мем"
     )
-    return {"type": "text", "text": text, "video_url": url, "source": url, "source_name": f"YouTube: {channel_name}"}
+    return {"type": "text", "text": text, "video_url": url, "source": url, "source_name": f"YouTube: {channel['name']}"}
+
+
+def meme_candidates(config, seen, per_channel=10):
+    """Русские мемы-Shorts с каналов из meme_channels, которых ещё не было: [(ключ, id, пост)]."""
+    import random
+
+    found = []
+    channels = list(config.get("meme_channels", []))
+    random.shuffle(channels)
+    for channel in channels:
+        key = f"shorts:{channel['channel_id']}"
+        try:
+            rows = shorts_list(channel["channel_id"], per_channel)
+        except Exception as error:  # noqa: BLE001
+            print(f"Мемы {channel['name']}: {error}")
+            continue
+        for video_id, title in rows:
+            if video_id not in seen.get(key, []) and russian(title) and not BAD_WORDS.search(title):
+                found.append((key, video_id, short_post(video_id, title, channel)))
+    random.shuffle(found)
+    return found
 
 
 def fetch_shorts(config, inbox, seen, now):
-    """Запасной источник видео-мемов: Shorts официального канала Brawl Stars."""
+    """Видео-мемы без ключей Reddit: русские Shorts мем-каналов (плеером, без скачивания)."""
     stock = sum(1 for item in inbox if item["kind"] == "meme")
-    if stock or not config.get("youtube"):
-        return  # Есть мемы с Reddit: Shorts не нужны.
-    channel = config["youtube"][0]
-    key = f"shorts:{channel['channel_id']}"
-    for video_id, title in shorts_list(channel["channel_id"]):
-        if stock >= 3:
-            break
-        if video_id in seen.get(key, []) or BAD_WORDS.search(title):
-            continue
+    if stock >= 3:
+        return
+    for key, video_id, post in meme_candidates(config, seen)[: 3 - stock]:
         remember(seen, key, video_id)
-        add(inbox, "meme", video_id, short_post(video_id, title, channel["name"]), now)
-        stock += 1
-        print(f"Shorts: {title}")
+        add(inbox, "meme", video_id, post, now)
+        print(f"Мем: {post['source_name']} {video_id}")
 
 
 def fetch_memes(config, inbox, seen, now):
@@ -355,10 +395,21 @@ def latest(kind, config):
 
     Возвращает (ключ seen, id, пост)."""
     if kind == "video":
-        channel = config["youtube"][0]
-        url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel['channel_id']}"
-        video = parse_youtube(get(url))[0]
-        return f"youtube:{channel['channel_id']}", video["id"], youtube_post(video, channel["name"])
+        import random
+
+        seen = json.loads(Path("seen.json").read_text(encoding="utf-8")) if Path("seen.json").exists() else {}
+        found = []
+        for channel in config.get("video_channels", []):
+            key = f"youtube:{channel['channel_id']}"
+            try:
+                videos = parse_youtube(get(f"https://www.youtube.com/feeds/videos.xml?channel_id={channel['channel_id']}"))
+            except Exception:  # noqa: BLE001
+                continue
+            found += [(key, v["id"], youtube_post(v, channel)) for v in videos[:5]
+                      if good_video(v) and v["id"] not in seen.get(key, [])]
+        if not found:
+            raise ValueError("нет свежих русских роликов")
+        return random.choice(found)
     if kind == "news":
         blog = config["supercell_blog"]
         links = parse_blog_links(get(blog["url"]), blog["url"])
@@ -368,9 +419,11 @@ def latest(kind, config):
                 return "blog", link, post
         raise ValueError("в блоге Supercell не нашлось статей")
     if kind == "meme" and not os.environ.get("REDDIT_CLIENT_ID"):
-        channel = config["youtube"][0]
-        video_id, title = shorts_list(channel["channel_id"], 1)[0]
-        return f"shorts:{channel['channel_id']}", video_id, short_post(video_id, title, channel["name"])
+        seen = json.loads(Path("seen.json").read_text(encoding="utf-8")) if Path("seen.json").exists() else {}
+        found = meme_candidates(config, seen)
+        if not found:
+            raise ValueError("нет новых мемов")
+        return found[0]
     if kind == "meme":
         memes = parse_reddit(fetch_reddit(config["reddit"]["subreddit"]), config["reddit"])
         if not memes:

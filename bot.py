@@ -36,7 +36,6 @@ API_BASE = os.environ.get("TELEGRAM_API_BASE", "https://api.telegram.org")
 LIMITS = {"text": 4096, "photo": 1024, "video": 1024}
 VIDEO_SIZE = {"width": 1280, "height": 720, "duration": 6}
 EARLY = 6 * 60  # Запуск чуть раньше слота: бот всё подготовит и дождётся точной минуты.
-LATE = 20 * 60  # Если запуск опоздал больше чем на 20 минут, слот пропускается.
 WAKE = 4 * 60  # Цепочка запусков просыпается за 4 минуты до слота.
 MAX_SLEEP = 5 * 3600 + 30 * 60  # Задача GitHub живёт не больше 6 часов.
 ALLOWED_TAGS = {"b", "i", "u", "s", "a", "code", "blockquote", "tg-spoiler"}
@@ -326,55 +325,65 @@ def load_config():
     return read_json(CONFIG, {"slots": [], "timezone_offset_hours": 3})
 
 
-def jitter(config, day, slot):
-    """Случайный, но одинаковый для всех запусков сдвиг слота в минутах (в пределах jitter_minutes)."""
-    import hashlib
-
-    start, end = config.get("jitter_minutes", [0, 0])
-    if end <= start:
-        return start
-    digest = hashlib.sha256(f"{day.isoformat()} {slot}".encode()).hexdigest()
-    return start + int(digest, 16) % (end - start + 1)
+def zone(config):
+    return timezone(timedelta(hours=config.get("timezone_offset_hours", 3)))
 
 
-def slot_times(config, now):
-    """Слоты вчера, сегодня и завтра: [(время в секундах, "ГГГГ-ММ-ДД ЧЧ:ММ", "ЧЧ:ММ")].
-
-    Время слота сдвинуто на случайные минуты, чтобы посты выходили не ровно в начале часа."""
-    zone = timezone(timedelta(hours=config.get("timezone_offset_hours", 3)))
-    today = datetime.fromtimestamp(now, zone).date()
-    result = []
-    for shift in (-1, 0, 1):
-        day = today + timedelta(days=shift)
-        for slot in config.get("slots", []):
-            hour, minute = map(int, slot.split(":"))
-            moment = datetime(day.year, day.month, day.day, hour, minute, tzinfo=zone)
-            moment += timedelta(minutes=jitter(config, day, slot))
-            result.append((moment.timestamp(), f"{day.isoformat()} {slot}", slot))
-    return sorted(result)
+def clock(config, ts):
+    return datetime.fromtimestamp(ts, zone(config))
 
 
-def due_slot(config, state, now):
-    """Ближайший неотработанный слот, до которого меньше EARLY или после которого меньше LATE."""
-    for moment, label, short in slot_times(config, now):
-        if -EARLY <= now - moment <= LATE and label > state.get("last_slot", ""):
-            return moment, label, short
-    return None
+def _hm(text):
+    hour, minute = map(int, text.split(":"))
+    return hour, minute
 
 
-def next_slot(config, state, now):
-    """Ближайший слот, который ещё можно отработать."""
-    for moment, label, short in slot_times(config, now):
-        if now - moment <= LATE and label > state.get("last_slot", ""):
-            return moment, label, short
-    return None
+def first_of_day(config, day):
+    """Первый пост дня: начало дня плюс случайные минуты."""
+    import random
+
+    hour, minute = _hm(config.get("day_start", "09:00"))
+    low, high = config.get("first_post_minutes", [5, 40])
+    moment = datetime(day.year, day.month, day.day, hour, minute, tzinfo=zone(config))
+    return (moment + timedelta(minutes=random.randint(low, high))).timestamp()
 
 
-def sleep_until_slot(config, state, now):
-    slot = next_slot(config, state, now)
-    wait = MAX_SLEEP if slot is None else min(max(slot[0] - WAKE - now, 0), MAX_SLEEP)
-    target = f"слота {slot[1]}" if slot and slot[0] - WAKE - now <= MAX_SLEEP else "следующего пробуждения"
-    print(f"Сплю {int(wait // 60)} мин до {target}")
+def fit_day(config, ts):
+    """Переносит время за пределами дня (по умолчанию 9:00-22:00) на утро."""
+    moment = clock(config, ts)
+    start = moment.replace(hour=_hm(config.get("day_start", "09:00"))[0],
+                           minute=_hm(config.get("day_start", "09:00"))[1], second=0, microsecond=0)
+    end = moment.replace(hour=_hm(config.get("day_end", "22:00"))[0],
+                         minute=_hm(config.get("day_end", "22:00"))[1], second=0, microsecond=0)
+    if moment < start:
+        return first_of_day(config, moment.date())
+    if moment > end:
+        return first_of_day(config, moment.date() + timedelta(days=1))
+    return ts
+
+
+def plan_next(config, after):
+    """Следующий пост через случайный интервал (по умолчанию 90-110 минут)."""
+    import random
+
+    low, high = config.get("interval_minutes", [90, 110])
+    return fit_day(config, after + random.randint(low * 60, high * 60))
+
+
+def next_post_at(config, state, now):
+    return state["next_at"] if state.get("next_at") else fit_day(config, now)
+
+
+def due(config, state, now):
+    """Время поста, если до него меньше EARLY (или оно уже прошло), иначе None."""
+    moment = next_post_at(config, state, now)
+    return moment if now >= moment - EARLY else None
+
+
+def sleep_until_post(config, state, now):
+    moment = next_post_at(config, state, now)
+    wait = min(max(moment - WAKE - now, 0), MAX_SLEEP)
+    print(f"Следующий пост в {clock(config, moment):%d.%m %H:%M}, сплю {int(wait // 60)} мин")
     return wait
 
 
@@ -393,14 +402,15 @@ def test_post(token, channel, kind, config):
     print(f"Пробный пост ({kind}) опубликован: {item_id}")
 
 
-def choose(posts, state, inbox, config, short, day, manual):
+def choose(posts, state, inbox, config, day, manual):
     """Что публиковать: ("meme"|"news", элемент inbox) или ("queue", номер) или None."""
     memes = [item for item in inbox if item["kind"] == "meme"]
     news = [item for item in inbox if item["kind"] == "news"]
     news_today = state.get("news_today", {}).get(day, 0)
-    if memes and short in config.get("meme_slots", []):
+    every = config.get("meme_every", 3)
+    if memes and not manual and every and state.get("posted", 0) % every == every - 1:
         return "meme", memes[0]
-    if news and news_today < config.get("max_news_per_day", 4):
+    if news and news_today < config.get("max_news_per_day", 3):
         return "news", news[0]
     if state["next"] < len(posts):
         return "queue", state["next"]
@@ -423,7 +433,7 @@ def main():
         print(f"Проверено постов: {max(len(posts) - state['next'], 0)}, в inbox: {len(inbox)}. Ошибок нет.")
         return
     if "--sleep" in sys.argv:
-        time.sleep(sleep_until_slot(config, state, time.time()))
+        time.sleep(sleep_until_post(config, state, time.time()))
         return
 
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -437,9 +447,12 @@ def main():
 
     now = time.time()
     manual = "--now" in sys.argv or os.environ.get("POST_NOW") == "true"
-    slot = None if manual else due_slot(config, state, now)
-    if not manual and not slot:
-        print("Сейчас нет слота для публикации")
+    moment = None if manual else due(config, state, now)
+    if not manual and moment is None:
+        print(f"Следующий пост в {clock(config, next_post_at(config, state, now)):%d.%m %H:%M}")
+        state.setdefault("next_at", next_post_at(config, state, now))
+        state.pop("last_slot", None)
+        write_json(STATE, state)
         return
 
     if os.environ.get("SKIP_FETCH") != "1":
@@ -450,18 +463,12 @@ def main():
         write_json(SEEN, seen)
         write_json(INBOX, inbox)
 
-    zone = timezone(timedelta(hours=config.get("timezone_offset_hours", 3)))
-    if slot:
-        moment, label, short = slot
-        wait = moment - time.time()
-        if wait > 0:
-            print(f"Жду слот {label}: {int(wait)} с")
-            time.sleep(wait)
-        day = label[:10]
-    else:
-        short, day = "", datetime.fromtimestamp(now, zone).date().isoformat()
+    if moment and moment > time.time():
+        print(f"Жду {clock(config, moment):%H:%M:%S}: {int(moment - time.time())} с")
+        time.sleep(moment - time.time())
+    day = clock(config, time.time()).date().isoformat()
 
-    choice = choose(posts, state, inbox, config, short, day, manual)
+    choice = choose(posts, state, inbox, config, day, manual)
     if choice is None:
         print("Публиковать нечего: очередь закончилась, добавь новые посты в queue.json")
     else:
@@ -477,9 +484,11 @@ def main():
             if where == "news":
                 state["news_today"] = {day: state.get("news_today", {}).get(day, 0) + 1}
             print(f"Опубликован автоматический пост ({where}): {item['id']}")
-    if slot:
-        state["last_slot"] = slot[1]
-    state.pop("next_at", None)
+        state["posted"] = state.get("posted", 0) + 1
+    if not manual:
+        state["next_at"] = plan_next(config, time.time())
+        print(f"Следующий пост в {clock(config, state['next_at']):%d.%m %H:%M}")
+    state.pop("last_slot", None)
     write_json(STATE, state)
 
 

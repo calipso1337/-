@@ -51,10 +51,10 @@ def run(tmp_path):
     (tmp_path / "videos" / "a.mp4").write_bytes(b"MP4-test")
     (tmp_path / "bot.py").write_text((ROOT / "bot.py").read_text(encoding="utf-8"), encoding="utf-8")
 
-    def go(posts, state=0, arguments=("--now",), config=None, inbox=None):
+    def go(posts, state=0, arguments=("--now",), config=None, inbox=None, next_at=None):
         (tmp_path / "queue.json").write_text(json.dumps(posts), encoding="utf-8")
-        (tmp_path / "state.json").write_text(json.dumps({"next": state}))
-        (tmp_path / "config.json").write_text(json.dumps(config or {"slots": []}))
+        (tmp_path / "state.json").write_text(json.dumps({"next": state, **({"next_at": next_at} if next_at else {})}))
+        (tmp_path / "config.json").write_text(json.dumps(config or {}))
         (tmp_path / "inbox.json").write_text(json.dumps(inbox or []))
         env = {
             **os.environ,
@@ -140,58 +140,64 @@ def test_post_without_source_has_no_footer(run):
     assert json.loads(server.calls[0][2])["text"] == "Привет"
 
 
-def test_no_slot_means_no_post(run):
+def test_waits_for_next_time(run, tmp_path):
     go, server = run
-    done, state = go([{"type": "text", "text": "Привет"}], arguments=())
+    done, state = go([{"type": "text", "text": "Привет"}], arguments=(), next_at=int(time.time()) + 3600)
     assert done.returncode == 0 and state == 0 and server.calls == []
-    assert "нет слота" in done.stdout
+    assert "Следующий пост" in done.stdout
 
 
-def slot_config(offset_seconds):
-    """Конфиг с одним слотом, который наступает через offset_seconds."""
-    moment = time.gmtime(time.time() + offset_seconds + 60)
-    return {"timezone_offset_hours": 0, "slots": [time.strftime("%H:%M", moment)]}
-
-
-def test_posts_in_slot_and_remembers_it(run, tmp_path):
+def test_posts_when_time_has_come_and_plans_next(run, tmp_path):
     go, server = run
-    config = slot_config(-120)
-    done, state = go([{"type": "text", "text": "Привет"}], arguments=(), config=config)
-    assert done.returncode == 0 and state == 1
+    config = {"timezone_offset_hours": 0, "day_start": "00:00", "day_end": "23:59", "interval_minutes": [90, 110]}
+    before = time.time()
+    done, state = go([{"type": "text", "text": "Привет"}], arguments=(), config=config, next_at=int(before) - 60)
+    assert done.returncode == 0 and state == 1, done.stdout + done.stderr
     saved = json.loads((tmp_path / "state.json").read_text())
-    assert saved["last_slot"].endswith(config["slots"][0])
+    gap = saved["next_at"] - before
+    assert saved["posted"] == 1
+    # Интервал 90-110 минут, если не упёрлись в конец дня.
+    assert 90 * 60 - 5 <= gap <= 110 * 60 + 5 or saved["next_at"] > before
 
 
-MSK = {"timezone_offset_hours": 3, "slots": ["09:00", "10:00"], "meme_slots": ["10:00"]}
+MSK = {"timezone_offset_hours": 3, "day_start": "09:00", "day_end": "22:00",
+       "interval_minutes": [90, 110], "first_post_minutes": [5, 40], "meme_every": 3}
 NINE = 1794204000  # 2026-11-09 09:00 по Москве
 
 
-@pytest.mark.parametrize(
-    "shift, expected",
-    [(-300, "2026-11-09 09:00"), (-10, "2026-11-09 09:00"), (0, "2026-11-09 09:00"),
-     (19 * 60, "2026-11-09 09:00"), (21 * 60, None), (-7 * 60, None), (3600 - 60, "2026-11-09 10:00")],
-)
-def test_due_slot(shift, expected):
-    slot = bot.due_slot(MSK, {"next": 0}, NINE + shift)
-    assert (slot and slot[1]) == expected
-    if slot:
-        assert slot[0] in (NINE, NINE + 3600)
+def test_interval_is_90_to_110_minutes():
+    for _ in range(200):
+        gap = bot.plan_next(MSK, NINE + 3600) - (NINE + 3600)
+        assert 90 * 60 <= gap <= 110 * 60
 
 
-def test_slot_is_used_once():
-    assert bot.due_slot(MSK, {"next": 0, "last_slot": "2026-11-09 09:00"}, NINE + 60) is None
+def test_night_moves_to_morning():
+    late = NINE + 12 * 3600 + 30 * 60  # 21:30
+    for _ in range(50):
+        moment = bot.plan_next(MSK, late)
+        assert NINE + 86400 + 5 * 60 <= moment <= NINE + 86400 + 40 * 60  # завтра 9:05-9:40
+    early = NINE - 4 * 3600  # 05:00
+    assert NINE + 5 * 60 <= bot.fit_day(MSK, early) <= NINE + 40 * 60
+
+
+def test_due_and_sleep():
+    state = {"next": 0, "next_at": NINE + 3600}
+    assert bot.due(MSK, state, NINE) is None
+    assert bot.due(MSK, state, NINE + 3600 - 120) == NINE + 3600
+    assert bot.due(MSK, state, NINE + 5 * 3600) == NINE + 3600  # Опоздали: публикуем сразу.
+    assert bot.sleep_until_post(MSK, state, NINE) == 3600 - bot.WAKE
+    assert bot.sleep_until_post(MSK, {"next": 0, "next_at": NINE + 86400}, NINE) == bot.MAX_SLEEP
 
 
 def test_choose_order():
     meme = {"kind": "meme", "id": "m"}
     news = {"kind": "news", "id": "n"}
     posts = [{"type": "text", "text": "x"}]
-    state = {"next": 0}
-    assert bot.choose(posts, state, [news, meme], MSK, "10:00", "d", False) == ("meme", meme)
-    assert bot.choose(posts, state, [news, meme], MSK, "09:00", "d", False) == ("news", news)
-    assert bot.choose(posts, {"next": 0, "news_today": {"d": 4}}, [news], MSK, "09:00", "d", False) == ("queue", 0)
-    assert bot.choose(posts, {"next": 1}, [meme], MSK, "09:00", "d", False) == ("meme", meme)
-    assert bot.choose(posts, {"next": 1}, [], MSK, "09:00", "d", False) is None
+    assert bot.choose(posts, {"next": 0, "posted": 2}, [news, meme], MSK, "d", False) == ("meme", meme)
+    assert bot.choose(posts, {"next": 0, "posted": 3}, [news, meme], MSK, "d", False) == ("news", news)
+    assert bot.choose(posts, {"next": 0, "news_today": {"d": 3}}, [news], MSK, "d", False) == ("queue", 0)
+    assert bot.choose(posts, {"next": 1}, [meme], MSK, "d", False) == ("meme", meme)
+    assert bot.choose(posts, {"next": 1}, [], MSK, "d", False) is None
 
 
 def test_inbox_news_goes_first(run):
@@ -260,24 +266,3 @@ def test_html_tags_do_not_count_towards_limit():
 def test_real_queue_is_valid():
     posts = json.loads(bot.QUEUE.read_text(encoding="utf-8"))
     bot.validate(posts, bot.load_state()["next"])
-
-
-def test_sleep_until_slot():
-    # 08:00 по Москве: до слота 09:00 час, просыпаемся за 4 минуты.
-    assert bot.sleep_until_slot(MSK, {"next": 0}, NINE - 3600) == 3600 - bot.WAKE
-    # Слот уже идёт: не спим.
-    assert bot.sleep_until_slot(MSK, {"next": 0}, NINE + 60) == 0
-    # После последнего слота дня спим не дольше лимита задачи GitHub.
-    assert bot.sleep_until_slot(MSK, {"next": 0, "last_slot": "2026-11-09 10:00"}, NINE + 7200) == bot.MAX_SLEEP
-
-
-def test_jitter_is_random_but_stable():
-    config = {**MSK, "jitter_minutes": [7, 52]}
-    times = bot.slot_times(config, NINE)
-    assert times == bot.slot_times(config, NINE + 1800)  # Все запуски цепочки видят одно и то же время.
-    week = [t for day in range(7) for t, _, _ in bot.slot_times(config, NINE + 86400 * day)]
-    minutes = {int((t - NINE) % 3600 // 60) for t in week}
-    assert min(minutes) >= 7 and max(minutes) <= 52 and len(minutes) > 5
-    nine = [t for t, label, _ in times if label == "2026-11-09 09:00"][0]
-    assert bot.due_slot(config, {"next": 0}, nine)[1] == "2026-11-09 09:00"
-    assert bot.due_slot(config, {"next": 0}, NINE - 600) is None  # До сдвинутого времени рано.

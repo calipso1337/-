@@ -1,18 +1,16 @@
 {
   "timezone_offset_hours": 3,
-  "slots": [
-    "09:00",
-    "11:00",
-    "13:00",
-    "15:00",
-    "17:00",
-    "19:00",
-    "21:00"
+  "day_start": "09:00",
+  "day_end": "22:00",
+  "interval_minutes": [
+    90,
+    110
   ],
-  "meme_slots": [
-    "13:00",
-    "19:00"
+  "first_post_minutes": [
+    5,
+    40
   ],
+  "meme_every": 3,
   "max_news_per_day": 3,
   "youtube": [
     {
@@ -32,8 +30,60 @@
     ],
     "min_score": 300
   },
-  "jitter_minutes": [
-    7,
-    52
+  "video_channels": [
+    {
+      "name": "Flix",
+      "channel_id": "UC_tFqYFHcPzzn5_tI9r4dGg"
+    },
+    {
+      "name": "Bubs",
+      "channel_id": "UCBviXfiXtYOzhaBO5iI65BQ"
+    },
+    {
+      "name": "Бубсик",
+      "channel_id": "UC8lL0SK6kcra9VExh-cVw0g"
+    },
+    {
+      "name": "STARR BS",
+      "channel_id": "UCyo0jxEDDSyqW3Ya4R83Nqg"
+    },
+    {
+      "name": "BOX BS",
+      "channel_id": "UCRiHt8wb09yZ_L-RLjK-lqg"
+    },
+    {
+      "name": "AuRuM TV",
+      "channel_id": "UCh1lXfVnw2L4w8aBHrTy4zA"
+    },
+    {
+      "name": "Cleopatra",
+      "channel_id": "UCCvLJ3Cxzb20ERPiMZ12KyA"
+    },
+    {
+      "name": "BEZSMERTNY BS",
+      "channel_id": "UCcOYr_9bA5_uPJ-6uFOrxZw"
+    },
+    {
+      "name": "Lupchic",
+      "channel_id": "UCduta2Z0bmjS4oiFsVTochQ"
+    }
+  ],
+  "meme_channels": [
+    {
+      "name": "БРАВЛ СТАРС — ПРИКОЛЫ",
+      "channel_id": "UCXlzu4cmcBF-NLbT81ZJCDg"
+    },
+    {
+      "name": "Аниматор Бодя",
+      "channel_id": "UCOjoi1glpz6gd2GftlxGy9Q"
+    },
+    {
+      "name": "LuoKho Brawl Stars Animation",
+      "channel_id": "UCf0dY9_vlMi0UxbBwQg2Sgg"
+    },
+    {
+      "name": "Весёлый Кот",
+      "channel_id": "UCiE3TqG7v_bXZCYB_FaFvDw"
+    }
   ]
 }
