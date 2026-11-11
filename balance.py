@@ -110,8 +110,10 @@ def balance_post(config, ask, root, stamp):
     data = root / "images" / f"{stamp}-balance.json"
     image = root / "images" / f"{stamp}-balance.png"
     data.write_text(json.dumps(table_data(answer, rows, stamp[:10]), ensure_ascii=False), encoding="utf-8")
-    subprocess.run([sys.executable, str(root / "tools" / "make_table.py"), str(image), str(data)],
-                   check=True, capture_output=True, text=True)
+    done = subprocess.run([sys.executable, str(root / "tools" / "make_table.py"), str(image), str(data)],
+                          capture_output=True, text=True)
+    if done.returncode:
+        raise ValueError(f"таблица не нарисовалась: {done.stderr.strip()[-300:]}")
     data.unlink()
     post = {"type": "photo", "image": f"images/{image.name}", "text": answer.get("text", "").strip(),
             "source": link, "source_name": "Supercell", "cover_kind": "update"}

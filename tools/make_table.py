@@ -23,7 +23,7 @@ MARGIN = 44
 ROW = 66
 HEADER = 58
 SECTION = 74
-COLUMNS = (0, 300, 700)
+COLUMNS = (0, 430, 740)
 TOP = (24, 18, 66)
 BOTTOM = (15, 23, 42)
 ACCENT = (253, 224, 71)
@@ -47,9 +47,13 @@ def gradient(height):
     return image.convert("RGBA")
 
 
-def check_width(draw, text, font, width):
-    if draw.textlength(text, font=font) > width:
-        raise ValueError(f"Текст не помещается в ячейку: {text}")
+def fitted(draw, text, path, width, size=28, smallest=16):
+    """Шрифт, с которым текст помещается в ячейку: длинный текст рисуется мельче."""
+    for current in range(size, smallest - 1, -2):
+        font = face(path, current)
+        if draw.textlength(text, font=font) <= width:
+            return font, (size - current) // 2
+    raise ValueError(f"Текст не помещается в ячейку: {text}")
 
 
 def render(output, data):
@@ -83,12 +87,13 @@ def render(output, data):
             if index % 2 == 0:
                 draw.rectangle((MARGIN, y, MARGIN + inner, y + ROW), fill=(*WHITE, 14))
             draw.rectangle((MARGIN, y, MARGIN + 6, y + ROW), fill=strong)
-            check_width(draw, brawler, name, COLUMNS[1] - 30)
-            check_width(draw, change, cell, COLUMNS[2] - COLUMNS[1] - 30)
-            check_width(draw, result, value, inner - COLUMNS[2] - 30)
-            draw.text((positions[0], y + 17), brawler, font=name, fill=WHITE)
-            draw.text((positions[1], y + 17), change, font=cell, fill=(226, 232, 240))
-            draw.text((positions[2], y + 17), result, font=value, fill=soft)
+            for text, path, width, x, color in (
+                (brawler, BOLD, COLUMNS[1] - 30, positions[0], WHITE),
+                (change, REGULAR, COLUMNS[2] - COLUMNS[1] - 30, positions[1], (226, 232, 240)),
+                (result, BOLD, inner - COLUMNS[2] - 30, positions[2], soft),
+            ):
+                font, shift = fitted(draw, text, path, width)
+                draw.text((x, y + 17 + shift), text, font=font, fill=color)
             y += ROW
 
     draw.text((MARGIN, y + 34), HANDLE, font=face(BOLD, 26), fill=ACCENT)
