@@ -553,8 +553,9 @@ def main():
         return
     need = 1 if only else min(TARGET - left, MAX_PER_RUN)
     inbox = bot.read_json(bot.INBOX, [])
-    prepare_backgrounds(config)
-    load_articles(config)
+    if only != "moment":  # Моменту обложка не нужна.
+        prepare_backgrounds(config)
+        load_articles(config)
     albums = [] if only else art_albums(min(2, max(need - 1, 0)), posts)
     moments = []
     if not only or only == "moment":

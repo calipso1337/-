@@ -131,7 +131,8 @@ def find_moments(count, used, models):
             if not answer or not answer.get("ok"):
                 continue
             moment = int(answer.get("start", -1))
-            if not 0 <= moment < video["duration"] or sources.BAD_WORDS.search(str(answer.get("title", ""))):
+            # Момент вне показанного фрагмента Gemini не видел, значит выдумал.
+            if not start <= moment <= window_end or sources.BAD_WORDS.search(str(answer.get("title", ""))):
                 print(f"Момент не подходит: {answer}")
                 continue
             posts.append(moment_post(video, moment, str(answer.get("title") or video["title"])))

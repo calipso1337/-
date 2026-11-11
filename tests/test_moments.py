@@ -44,6 +44,7 @@ def test_find_uses_replay_peak(monkeypatch):
 def test_rejects_bad_answers(monkeypatch):
     monkeypatch.setattr(moments, "search", lambda query, limit=15: [VIDEO])
     monkeypatch.setattr(moments, "replay_peak", lambda video_id, duration: None)
-    for answer in ({"ok": False}, {"ok": True, "start": 9999, "title": "x"}, None):
+    for answer in ({"ok": False}, {"ok": True, "start": 9999, "title": "x"}, None,
+                   {"ok": True, "start": 426, "title": "вне фрагмента 15-300"}):
         monkeypatch.setattr(moments, "ask_video", lambda *a, answer=answer: answer)
         assert moments.find_moments(1, set(), ["m"]) == []
