@@ -123,12 +123,27 @@ def blog_art(blog_url, limit):
     return items
 
 
+def gameplay_art(channel, limit=8):
+    """Скриншоты из самой игры: кадры геймплейных роликов ютуберов (только русские ролики, без Shorts)."""
+    videos = sources.parse_youtube(sources.get(
+        f"https://www.youtube.com/feeds/videos.xml?channel_id={channel['channel_id']}"))
+    items = []
+    for video in [v for v in videos if sources.good_video(v)][:limit]:
+        for n in (1, 2, 3):
+            items.append({"id": f"gp-{video['id']}-{n}", "title": video["title"], "video": video["id"],
+                          "credit": f"Кадр: {channel['name']}",
+                          "urls": [f"https://i.ytimg.com/vi/{video['id']}/maxres{n}.jpg",
+                                   f"https://i.ytimg.com/vi/{video['id']}/hq{n}.jpg"]})
+    return items
+
+
 def collect(config, limit=60):
     """Скачивает фоны. Ошибка одного источника не мешает остальным."""
     CACHE.mkdir(exist_ok=True)
     found = []
     for name, job in (
         ("YouTube", lambda: [i for c in config.get("youtube", []) for i in youtube_art(c["channel_id"], limit)]),
+        ("Скриншоты", lambda: [i for c in config.get("video_channels", []) for i in gameplay_art(c)]),
         # Картинки статей блога выключены по умолчанию: на них крупные надписи.
         ("Блог", lambda: blog_art(config["supercell_blog"]["url"], 20) if config.get("art_from_blog") else []),
     ):
@@ -156,7 +171,8 @@ def collect(config, limit=60):
                 if letterboxed(path):
                     break
                 index.append({"id": item["id"], "title": item["title"], "path": str(path),
-                              "video": item.get("video", item["id"])})
+                              "video": item.get("video", item["id"]),
+                              "credit": item.get("credit", "Арт: Supercell")})
                 break
             except Exception as error:  # noqa: BLE001
                 print(f"Фон {item['id']}: {type(error).__name__}: {error}")
@@ -181,12 +197,18 @@ def load():
 RECENT = 60  # Фон не повторяется, пока не пройдут столько других обложек.
 
 
-def pick(text, index, used):
-    """Путь к фону для поста или None. used: список id, обновляется."""
+def pick(text, index, used, screenshot_share=0.5):
+    """Фон для поста ({path, credit, ...}) или None. used: список id, обновляется.
+
+    Примерно половина обложек на скриншотах из игры, половина на арте из мультфильмов."""
     import random
 
     if not index:
         return None
+    screens = [item for item in index if item["id"].startswith("gp-")]
+    arts = [item for item in index if not item["id"].startswith("gp-")]
+    if screens and arts:
+        index = screens if random.random() < screenshot_share else arts
     recent = set(used[-min(RECENT, max(len(index) - 1, 0)):])
     fresh = [item for item in index if item["id"] not in recent] or index
     topic = words(text)
@@ -194,4 +216,4 @@ def pick(text, index, used):
     best = max(fresh, key=lambda item: (len(topic & words(item["title"])), -counts[item["id"]], random.random()))
     used.append(best["id"])
     del used[:-300]
-    return best["path"]
+    return best

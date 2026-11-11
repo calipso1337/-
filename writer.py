@@ -224,10 +224,13 @@ def save_backgrounds():
 
 
 def draw(path, args, topic=""):
-    background = art.pick(topic, BACKGROUNDS["index"], BACKGROUNDS["used"])
     import random
 
-    extra = ["--bg", background, "--focus", f"{random.uniform(0.1, 0.9):.2f}"] if background else []
+    background = art.pick(topic, BACKGROUNDS["index"], BACKGROUNDS["used"])
+    extra = []
+    if background:
+        extra = ["--bg", background["path"], "--focus", f"{random.uniform(0.1, 0.9):.2f}",
+                 "--credit", background.get("credit", "Арт: Supercell")]
     subprocess.run([sys.executable, str(ROOT / "tools" / "make_cover.py"), str(path), *args, *extra],
                    check=True, capture_output=True, text=True)
 

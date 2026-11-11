@@ -22,7 +22,7 @@ from make_image import BOLD, HANDLE, KINDS, REGULAR, background  # noqa: E402
 W, H = 1280, 720
 S = 2  # Рисуем в двойном размере и уменьшаем: края букв получаются гладкими.
 NOT_DRAWABLE = re.compile("[\U00010000-\U0010ffff☀-➿️‍]")
-CREDIT = "Арт: Supercell"
+CREDIT = ["Арт: Supercell"]  # Подпись источника фона; меняется флагом --credit.
 
 
 def face(path, size):
@@ -159,7 +159,7 @@ def card(output, kind, title, subtitle="", stat="", stat_label="", bg=None):
     # Низ: тонкая полоса и подпись арта.
     draw.rectangle((0, H * S - 10 * S, W * S, H * S), fill=(*accent, 255))
     if bg:
-        draw.text((W * S - left, H * S - 34 * S), CREDIT, font=face(REGULAR, 18),
+        draw.text((W * S - left, H * S - 34 * S), CREDIT[0], font=face(REGULAR, 18),
                   fill=(255, 255, 255, 200), anchor="rm")
     save(Image.alpha_composite(base, layer), output, (W, H))
 
@@ -190,7 +190,7 @@ def meme(output, top, bottom, bg=None, kind="meme"):
     draw.text((margin, size - 40 * S), HANDLE, font=face(BOLD, 24), fill=(*accent, 255), anchor="ls",
               stroke_width=2 * S, stroke_fill=(0, 0, 0, 255))
     if bg:
-        draw.text((size - margin, size - 40 * S), CREDIT, font=face(REGULAR, 20), fill=(255, 255, 255, 210),
+        draw.text((size - margin, size - 40 * S), CREDIT[0], font=face(REGULAR, 20), fill=(255, 255, 255, 210),
                   anchor="rs", stroke_width=2 * S, stroke_fill=(0, 0, 0, 255))
     save(Image.alpha_composite(base, layer), output, (1080, 1080))
 
@@ -212,7 +212,9 @@ def main():
     parser.add_argument("--stat-label", default="")
     parser.add_argument("--meme", nargs=2, metavar=("TOP", "BOTTOM"))
     parser.add_argument("--focus", type=float, default=0.5, help="0 левый край кадра, 1 правый")
+    parser.add_argument("--credit", default="Арт: Supercell", help="подпись источника фона")
     args = parser.parse_args()
+    CREDIT[0] = args.credit[:60]
     FOCUS[0] = min(max(args.focus, 0.0), 1.0)
     if args.meme:
         meme(args.output, *args.meme, bg=args.bg)

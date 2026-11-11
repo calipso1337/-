@@ -1,5 +1,6 @@
 name: post
-# Цепочка без внешних сервисов: каждый запуск спит до ближайшего слота, публикует пост
+# Цепочка без внешних сервисов: каждый запуск до своего поста работает админ-ботом (очередь
+# из Telegram, модерация чата), в назначенную минуту публикует пост
 # и запускает следующий. Если цепочка оборвалась, её перезапускает watchdog.yml
 # или кнопка Run workflow.
 on:
@@ -33,9 +34,16 @@ jobs:
     timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
-      - name: Ждать слот
+      - name: Админ-бот и модерация до следующего поста
         if: env.MANUAL == 'false'
-        run: python3 bot.py --sleep
+        continue-on-error: true
+        run: |
+          git config user.name "channel-bot"
+          git config user.email "channel-bot@users.noreply.github.com"
+          python3 -u admin.py --until-post || python3 bot.py --sleep
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL: ${{ vars.TELEGRAM_CHANNEL }}
       - name: Взять свежую очередь
         run: git pull --ff-only origin main
       - name: Установить yt-dlp (список Shorts и роликов, без скачивания)

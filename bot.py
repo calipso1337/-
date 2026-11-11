@@ -171,8 +171,15 @@ def download_video(url):
     return data
 
 
+def is_file_id(value):
+    """Файл, который прислали боту в Telegram: хранится как tg:FILE_ID и отправляется без скачивания."""
+    return isinstance(value, str) and value.startswith("tg:")
+
+
 def send_photo(token, channel, image, caption, keyboard=None, upload=False):
     fields = {"chat_id": channel, "caption": caption, "parse_mode": "HTML"}
+    if is_file_id(image):
+        return call(token, "sendPhoto", {**fields, "photo": image[3:]})
     if is_url(image) and not upload:
         payload = {**fields, "photo": image}
         if keyboard:
@@ -196,7 +203,7 @@ def send_post_photo(token, channel, post, keyboard=None):
     try:
         return send_photo(token, channel, post["image"], full_text(post), keyboard)
     except RuntimeError as error:
-        if not is_url(post["image"]):
+        if not is_url(post["image"]) or is_file_id(post["image"]):
             raise
         print(f"Telegram не смог забрать картинку по ссылке: {error}")
     # Telegram не всегда скачивает чужие ссылки сам, поэтому пробуем загрузить файл.
@@ -233,7 +240,12 @@ def publish(token, channel, post):
             "supports_streaming": "true",
             **VIDEO_SIZE,
         }
-        if is_url(post["video"]):
+        if is_file_id(post["video"]):
+            method = "sendAnimation" if post.get("animation") else "sendVideo"
+            payload = {key: value for key, value in fields.items() if key not in VIDEO_SIZE}
+            payload["animation" if post.get("animation") else "video"] = post["video"][3:]
+            call(token, method, payload)
+        elif is_url(post["video"]):
             # Видео-мем с площадки: скачиваем по адресу из API и загружаем файлом.
             for key in VIDEO_SIZE:
                 fields.pop(key)
@@ -277,13 +289,15 @@ def validate_post(post):
     if kind == "photo" and not post.get("image"):
         errors.append("нет картинки")
     for image in (post.get("image"), post.get("fallback_image")):
-        if image and not is_url(image):
+        if image and not is_url(image) and not is_file_id(image):
             path = (ROOT / image).resolve()
             if ROOT not in path.parents or not path.is_file():
                 errors.append(f"файл {image} не найден")
             elif path.stat().st_size > 10_000_000:
                 errors.append(f"файл {image} больше 10 МБ")
-    if kind == "video" and is_url(post.get("video", "")):
+    if kind == "video" and is_file_id(post.get("video")):
+        pass
+    elif kind == "video" and is_url(post.get("video", "")):
         if not post["video"].startswith("https://"):
             errors.append("видео по ссылке только через https")
     elif kind == "video":
