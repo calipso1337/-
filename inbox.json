@@ -1,18 +1,6 @@
 [
  {
   "kind": "meme",
-  "id": "xJx25xxBoDk",
-  "added": 1794420488,
-  "post": {
-   "type": "text",
-   "text": "<b>😂 МЕМ ДНЯ</b>\n<i>Что если ты bobrito bandito?</i>\n\n👤 Автор: <a href=\"https://www.youtube.com/channel/UCiE3TqG7v_bXZCYB_FaFvDw\">Весёлый Кот</a>\n▶️ Плеер над постом\n\nСтавь 😂 если зашло\n\n#BrawlStars #мем",
-   "source": "https://www.youtube.com/shorts/xJx25xxBoDk",
-   "source_name": "YouTube: Весёлый Кот",
-   "video_url": "https://www.youtube.com/shorts/xJx25xxBoDk"
-  }
- },
- {
-  "kind": "meme",
   "id": "5hGlAQw13Fw",
   "added": 1794420488,
   "post": {
@@ -44,6 +32,18 @@
    "text": "<b>🎬 НОВОЕ ВИДЕО</b>\n<i>🔴 ФИНАЛ ЧЕМПИОНАТА МИРА ПО КЛЕШ ОФ КЛЕНС С @salomon_youtube | КЛЕО CLASH OF CLANS</i>\n\n👤 Автор: <a href=\"https://www.youtube.com/channel/UCCvLJ3Cxzb20ERPiMZ12KyA\">Cleopatra</a>\n▶️ Плеер над постом\n\n🔥 уже посмотрел · 👀 смотрю сейчас\n\n#BrawlStars #видео",
    "video_url": "https://www.youtube.com/watch?v=c0dRtJHAo-E",
    "source": "https://www.youtube.com/watch?v=c0dRtJHAo-E",
+   "source_name": "YouTube: Cleopatra"
+  }
+ },
+ {
+  "kind": "news",
+  "id": "zdEBzhfJaGQ",
+  "added": 1794489472,
+  "post": {
+   "type": "text",
+   "text": "<b>🎬 НОВОЕ ВИДЕО</b>\n<i>🐸 ОТКРЫЛА 100 ЯЩИКОВ ГРОМОЖАБ В БРАВЛ СТАРС | КЛЕО BRAWL STARS</i>\n\n👤 Автор: <a href=\"https://www.youtube.com/channel/UCCvLJ3Cxzb20ERPiMZ12KyA\">Cleopatra</a>\n▶️ Плеер над постом\n\n🔥 уже посмотрел · 👀 смотрю сейчас\n\n#BrawlStars #видео",
+   "video_url": "https://www.youtube.com/watch?v=zdEBzhfJaGQ",
+   "source": "https://www.youtube.com/watch?v=zdEBzhfJaGQ",
    "source_name": "YouTube: Cleopatra"
   }
  }
