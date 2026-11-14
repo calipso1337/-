@@ -12,18 +12,6 @@
   }
  },
  {
-  "kind": "news",
-  "id": "vpagj_ElIv8",
-  "added": 1794586380,
-  "post": {
-   "type": "text",
-   "text": "<b>🎬 НОВОЕ ВИДЕО</b>\n<i>🔴 ПУШ ЛЕГЕНДЫ В РАНГОВОМ БОЮ В БРАВЛ СТАРС | КЛЕО BRAWL STARS</i>\n\n👤 Автор: <a href=\"https://www.youtube.com/channel/UCCvLJ3Cxzb20ERPiMZ12KyA\">Cleopatra</a>\n▶️ Плеер над постом\n\n🔥 уже посмотрел · 👀 смотрю сейчас\n\n#BrawlStars #видео",
-   "video_url": "https://www.youtube.com/watch?v=vpagj_ElIv8",
-   "source": "https://www.youtube.com/watch?v=vpagj_ElIv8",
-   "source_name": "YouTube: Cleopatra"
-  }
- },
- {
   "kind": "meme",
   "id": "KiM_mHoINIw",
   "added": 1794586380,
@@ -33,6 +21,18 @@
    "video_url": "https://www.youtube.com/shorts/KiM_mHoINIw",
    "source": "https://www.youtube.com/shorts/KiM_mHoINIw",
    "source_name": "YouTube: Аниматор Бодя"
+  }
+ },
+ {
+  "kind": "meme",
+  "id": "qFw8HRFxmxk",
+  "added": 1794643216,
+  "post": {
+   "type": "text",
+   "text": "<b>😂 МЕМ ДНЯ</b>\n<i>История из жизни кота #3 в роблокс брукхейвен 🏡 рп #роблокс #shorts #весёлыйкот</i>\n\n👤 Автор: <a href=\"https://www.youtube.com/channel/UCiE3TqG7v_bXZCYB_FaFvDw\">Весёлый Кот</a>\n▶️ Плеер над постом\n\nСтавь 😂 если зашло\n\n#BrawlStars #мем",
+   "video_url": "https://www.youtube.com/shorts/qFw8HRFxmxk",
+   "source": "https://www.youtube.com/shorts/qFw8HRFxmxk",
+   "source_name": "YouTube: Весёлый Кот"
   }
  }
 ]
